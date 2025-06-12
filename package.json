@@ -1,0 +1,26 @@
+{
+  "name": "dom-templating-repo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "wireit",
+    "test": "wireit"
+  },
+  "devDependencies": {
+    "wireit": "^0.14.12"
+  },
+  "wireit": {
+    "build": {
+      "dependencies": [
+        "./packages/prototype:build"
+      ]
+    },
+    "test": {
+      "dependencies": [
+        "./packages/prototype:test"
+      ]
+    }
+  }
+}
