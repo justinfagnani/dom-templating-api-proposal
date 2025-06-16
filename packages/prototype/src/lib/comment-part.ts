@@ -1,7 +1,8 @@
 import {TemplatePart} from './template-part.js';
 
+// TODO: Make comment parts do something reasonable. Likely they should behave
+// like MultiAttributeParts and have static strings and one or more bindings.
 export class CommentPart extends TemplatePart {
-  override readonly type = TemplatePart.COMMENT_PART;
   readonly node: Comment;
 
   constructor(node: Comment) {

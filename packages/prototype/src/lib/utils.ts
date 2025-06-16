@@ -16,4 +16,5 @@ export const isIterable = (value: unknown): value is Iterable<unknown> =>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   typeof (value as any)?.[Symbol.iterator] === 'function';
 
-export const createMarker = () => document.createComment('');
+// Creates a dynamic marker. We never have to search for these in the DOM.
+export const createMarker = () => document.createComment('?node-part');

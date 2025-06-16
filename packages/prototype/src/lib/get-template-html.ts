@@ -1,14 +1,14 @@
 import type {TemplateResultKind} from './template-result.js';
 
-// Added to an attribute name to mark the attribute as bound so we can find
-// it easily.
+// Added to an attribute name to mark the attribute as bound so we can find it
+// easily.
 export const boundAttributeSuffix = '$bound$';
 
-// This marker is used in many syntactic positions in HTML, so it must be
-// a valid element name and attribute name. We don't support dynamic names (yet)
-// but this at least ensures that the parse tree is closer to the template
+// This marker is used in many syntactic positions in HTML, so it must be a
+// valid element name and attribute name. We don't support dynamic names but
+// this at least ensures that the parse tree is closer to the template
 // intention.
-export const marker = `lit$${Math.random().toFixed(9).slice(2)}$`;
+export const marker = `node-part`;
 
 // String used to tell if a comment is a marker comment
 const markerMatch = '?' + marker;
@@ -164,11 +164,7 @@ export const getTemplateHtml = (
           }
           regex = tagEndRegex;
         } else if (match[DYNAMIC_TAG_NAME] !== undefined) {
-          throw new Error(
-            'Bindings in tag names are not supported. Please use static templates instead. ' +
-              'See https://lit.dev/docs/templates/expressions/#static-expressions'
-          );
-          regex = tagEndRegex;
+          throw new Error('Bindings in tag names are not supported.');
         }
       } else if (regex === tagEndRegex) {
         if (match[ENTIRE_MATCH] === '>') {

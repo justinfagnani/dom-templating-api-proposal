@@ -1,4 +1,4 @@
-import {AttributePart} from './attribute-part.js';
+import {MultiAttributePart, SingleAttributePart} from './attribute-part.js';
 import {BooleanAttributePart} from './boolean-attribute-part.js';
 import {ChildPart} from './child-part.js';
 import {CommentPart} from './comment-part.js';
@@ -9,22 +9,11 @@ import {
   getTemplateHtml,
   marker,
 } from './get-template-html.js';
-import {PropertyPart} from './property-part.js';
+import {MultiPropertyPart, SinglePropertyPart} from './property-part.js';
 import {TemplateInstance} from './template-instance.js';
 import type {TemplatePart} from './template-part.js';
 import {TemplateResult} from './template-result.js';
-
-/**
- * The cache of prepared templates, keyed by the tagged TemplateStringsArray
- * and _not_ accounting for the specific template tag used. This means that
- * template tags cannot be dynamic - they must statically be one of html, svg,
- * or attr. This restriction simplifies the cache lookup, which is on the hot
- * path for rendering.
- */
-export const templateCache = new WeakMap<TemplateStringsArray, Template>();
-
-// Creates a dynamic marker. We never have to search for these in the DOM.
-const createMarker = () => document.createComment('');
+import {createMarker} from './utils.js';
 
 const walker = document.createTreeWalker(
   document,
@@ -39,6 +28,32 @@ const isElement = (node: Node): node is Element =>
 
 const isComment = (node: Node): node is Comment =>
   node.nodeType === Node.COMMENT_NODE;
+
+/*
+ * Caches of prepared templates, keyed by the tagged TemplateStringsArray.
+ */
+const htmlTemplateCache = new WeakMap<TemplateStringsArray, Template>();
+const svgTemplateCache = new WeakMap<TemplateStringsArray, Template>();
+const mathmlTemplateCache = new WeakMap<TemplateStringsArray, Template>();
+
+export const getTemplate = (result: TemplateResult) => {
+  const kind = result.kind;
+  let template;
+  let templateCache =
+    kind === TemplateResult.HTML_RESULT
+      ? htmlTemplateCache
+      : kind === TemplateResult.SVG_RESULT
+        ? svgTemplateCache
+        : mathmlTemplateCache;
+
+  template = templateCache.get(result.strings);
+  if (template === undefined) {
+    template = new Template(result);
+    templateCache.set(result.strings, template);
+  }
+
+  return template;
+};
 
 export class Template {
   element: HTMLTemplateElement;
@@ -98,15 +113,22 @@ export class Template {
               const sourceName = attributeNames[attrNameIndex++];
               const value = node.getAttribute(attributeName)!;
               const statics = value.split(marker);
+              const isSingleValueBinding =
+                statics.length === 2 && statics[0] === '' && statics[1] === '';
+
               const [, sigil, name] = /([.?@])?(.*)/.exec(sourceName)!;
               const partConstructor =
                 sigil === '.'
-                  ? PropertyPart
+                  ? isSingleValueBinding
+                    ? SinglePropertyPart
+                    : MultiPropertyPart
                   : sigil === '?'
                     ? BooleanAttributePart
                     : sigil === '@'
                       ? EventPart
-                      : AttributePart;
+                      : isSingleValueBinding
+                        ? SingleAttributePart
+                        : MultiAttributePart;
               parts.push({
                 part: new partConstructor(node as HTMLElement, name, statics),
                 index: nodeIndex,
@@ -144,7 +166,8 @@ export class Template {
             // Note because this marker is added after the walker's current
             // node, it will be walked to in the outer loop (and ignored), so we
             // don't need to adjust nodeIndex here
-            node.append(strings[lastIndex], createMarker());
+            // TODO (justinfagnani): why do we need this marker?
+            node.append(strings[lastIndex], document.createComment(''));
           }
         }
       } else if (isComment(node)) {

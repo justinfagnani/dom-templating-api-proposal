@@ -2,24 +2,29 @@ import {assert} from 'chai';
 import {html, mathml, render, svg} from '../index.js';
 import {noChange, nothing} from '../lib/sentinels.js';
 import type {TemplateResult} from '../lib/template-result.js';
+import {stripExpressionComments, stripExpressionMarkers} from './utils.js';
 
 suite('render()', () => {
-    let container: HTMLDivElement;
+  let container: HTMLDivElement;
 
   setup(() => {
     container = document.createElement('div');
     container.id = 'container';
   });
 
-  const assertRender = (
-    r: TemplateResult,
-    expected: string
-  ) => {
+  /**
+   * Renders an expression into the container, asserts that its contents match
+   * the expected string, and return the root ChildPart.
+   */
+  const assertRender = (r: TemplateResult, expected: string) => {
     const part = render(r, container);
-    assert.equal(stripExpressionComments(container.innerHTML), expected);
+    assertContent(expected);
     return part;
   };
 
+  /**
+   * Asserts that the container's content matches the expected string.
+   */
   const assertContent = (expected: string) => {
     assert.equal(stripExpressionComments(container.innerHTML), expected);
   };
@@ -60,7 +65,7 @@ suite('render()', () => {
       assertRender(html`<x1>${'A'}</x1>`, '<x1>A</x1>');
     });
 
-    test('text after self-closing tag', () => {
+    test('text after "self-closing" tag', () => {
       assertRender(html`<input />${'A'}`, '<input>A');
       assertRender(
         html`<!-- @ts-ignore --><x-foo />${'A'}`,
@@ -69,8 +74,10 @@ suite('render()', () => {
     });
 
     test('text child of element with unbound quoted attribute', () => {
+      // prettier-ignore
       assertRender(html`<div a="b">${'d'}</div>`, '<div a="b">d</div>');
 
+      // prettier-ignore
       render(html`<script a="b" type="foo">${'d'}</script>`, container);
       assert.include(
         [
@@ -82,8 +89,10 @@ suite('render()', () => {
     });
 
     test('text child of element with unbound unquoted attribute', () => {
+      // prettier-ignore
       assertRender(html`<div a=b>${'d'}</div>`, '<div a="b">d</div>');
 
+      // prettier-ignore
       render(html`<script a=b type="foo">${'d'}</script>`, container);
       assert.include(
         [
@@ -95,6 +104,7 @@ suite('render()', () => {
     });
 
     test('renders parts with whitespace after them', () => {
+      // prettier-ignore
       assertRender(html`<div>${'foo'} </div>`, '<div>foo </div>');
     });
 
@@ -108,6 +118,7 @@ suite('render()', () => {
 
     test('renders templates with comments', () => {
       assertRender(
+        // prettier-ignore
         html`
         <div>
           <!-- this is a comment -->
@@ -124,6 +135,7 @@ suite('render()', () => {
     });
 
     test('text after element', () => {
+      // prettier-ignore
       assertRender(html`<div></div>${'A'}`, '<div></div>A');
     });
 
@@ -142,10 +154,13 @@ suite('render()', () => {
 
     test('text in raw text elements', () => {
       assertRender(
+        // prettier-ignore
         html`<script type="foo">${'A'}</script>`,
         '<script type="foo">A</script>'
       );
+      // prettier-ignore
       assertRender(html`<style>${'A'}</style>`, '<style>A</style>');
+      // prettier-ignore
       assertRender(html`<title>${'A'}</title>`, '<title>A</title>');
     });
 
@@ -158,6 +173,7 @@ suite('render()', () => {
       // <textarea> since comments aren't parsed and we have to search the text
       // anyway.
       assertRender(
+        // prettier-ignore
         html`<script type="foo">i < j ${'A'}</script>`,
         '<script type="foo">i < j A</script>'
       );
@@ -165,6 +181,7 @@ suite('render()', () => {
 
     test('text in raw text element after >', () => {
       assertRender(
+        // prettier-ignore
         html`<script type="foo">i > j ${'A'}</script>`,
         '<script type="foo">i > j A</script>'
       );
@@ -172,6 +189,7 @@ suite('render()', () => {
 
     test('text in raw text element inside tag-like string', () => {
       assertRender(
+        // prettier-ignore
         html`<script type="foo">"<div a=${'A'}></div>";</script>`,
         '<script type="foo">"<div a=A></div>";</script>'
       );
@@ -179,6 +197,7 @@ suite('render()', () => {
 
     test('renders inside <script>: only node', () => {
       assertRender(
+        // prettier-ignore
         html`<script type="foo">${'foo'}</script>`,
         '<script type="foo">foo</script>'
       );
@@ -186,6 +205,7 @@ suite('render()', () => {
 
     test('renders inside <script>: first node', () => {
       assertRender(
+        // prettier-ignore
         html`<script type="foo">${'foo'}A</script>`,
         '<script type="foo">fooA</script>'
       );
@@ -193,6 +213,7 @@ suite('render()', () => {
 
     test('renders inside <script>: last node', () => {
       assertRender(
+        // prettier-ignore
         html`<script type="foo">A${'foo'}</script>`,
         '<script type="foo">Afoo</script>'
       );
@@ -200,6 +221,7 @@ suite('render()', () => {
 
     test('renders inside <script>: multiple bindings', () => {
       assertRender(
+        // prettier-ignore
         html`<script type="foo">A${'foo'}B${'bar'}C</script>`,
         '<script type="foo">AfooBbarC</script>'
       );
@@ -207,33 +229,40 @@ suite('render()', () => {
 
     test('renders inside <script>: attribute-like', () => {
       assertRender(
+        // prettier-ignore
         html`<script type="foo">a=${'foo'}</script>`,
         '<script type="foo">a=foo</script>'
       );
     });
 
     test('text after script element', () => {
+      // prettier-ignore
       assertRender(html`<script></script>${'A'}`, '<script></script>A');
     });
 
     test('text after script element with binding', () => {
       assertRender(
+        // prettier-ignore
         html`<script type="foo">${'A'}</script>${'B'}`,
         '<script type="foo">A</script>B'
       );
       assertRender(
+        // prettier-ignore
         html`<script type="foo">1${'A'}</script>${'B'}`,
         '<script type="foo">1A</script>B'
       );
       assertRender(
+        // prettier-ignore
         html`<script type="foo">${'A'}1</script>${'B'}`,
         '<script type="foo">A1</script>B'
       );
       assertRender(
+        // prettier-ignore
         html`<script type="foo">${'A'}${'B'}</script>${'C'}`,
         '<script type="foo">AB</script>C'
       );
       assertRender(
+        // prettier-ignore
         html`<script type="foo">${'A'}</script><p>${'B'}</p>`,
         '<script type="foo">A</script><p>B</p>'
       );
@@ -245,6 +274,7 @@ suite('render()', () => {
 
     test('text inside raw text element, after different raw tag', () => {
       assertRender(
+        // prettier-ignore
         html`<script type="foo"><style></style>"<div a=${'A'}></div>"</script>`,
         '<script type="foo"><style></style>"<div a=A></div>"</script>'
       );
@@ -252,6 +282,7 @@ suite('render()', () => {
 
     test('text inside raw text element, after different raw end tag', () => {
       assertRender(
+        // prettier-ignore
         html`<script type="foo"></style>"<div a=${'A'}></div>"</script>`,
         '<script type="foo"></style>"<div a=A></div>"</script>'
       );
@@ -263,6 +294,7 @@ suite('render()', () => {
 
     test('attribute after raw text element', () => {
       assertRender(
+        // prettier-ignore
         html`<script></script><div a=${'A'}></div>`,
         '<script></script><div a="A"></div>'
       );
@@ -271,17 +303,17 @@ suite('render()', () => {
     test('unquoted attribute', () => {
       assertRender(html`<div a=${'A'}></div>`, '<div a="A"></div>');
       assertRender(html`<div abc=${'A'}></div>`, '<div abc="A"></div>');
-      assertRender(html`<div abc = ${'A'}></div>`, '<div abc="A"></div>');
-      assertRender(html`<input value=${'A'}/>`, '<input value="A">');
-      assertRender(html`<input value=${'A'}${'B'}/>`, '<input value="AB">');
+      assertRender(html`<div abc=${'A'}></div>`, '<div abc="A"></div>');
+      assertRender(html`<input value=${'A'} />`, '<input value="A">');
+      assertRender(html`<input value="${'A'}${'B'}" />`, '<input value="AB">');
     });
 
     test('quoted attribute', () => {
       assertRender(html`<div a="${'A'}"></div>`, '<div a="A"></div>');
       assertRender(html`<div abc="${'A'}"></div>`, '<div abc="A"></div>');
-      assertRender(html`<div abc = "${'A'}"></div>`, '<div abc="A"></div>');
+      assertRender(html`<div abc="${'A'}"></div>`, '<div abc="A"></div>');
       assertRender(html`<div abc="${'A'}/>"></div>`, '<div abc="A/>"></div>');
-      assertRender(html`<input value="${'A'}"/>`, '<input value="A">');
+      assertRender(html`<input value="${'A'}" />`, '<input value="A">');
     });
 
     test('second quoted attribute', () => {
@@ -317,16 +349,26 @@ suite('render()', () => {
     });
 
     test('text after quoted bound attribute', () => {
-      assertRender(html`<div a="${'A'}">${'A'}</div>`, '<div a="A">A</div>');
       assertRender(
+        // prettier-ignore
+        html`<div a="${'A'}">${'A'}</div>`,
+        '<div a="A">A</div>'
+      );
+      assertRender(
+        // prettier-ignore
         html`<script type="foo" a="${'A'}">${'A'}</script>`,
         '<script type="foo" a="A">A</script>'
       );
     });
 
     test('text after unquoted bound attribute', () => {
-      assertRender(html`<div a=${'A'}>${'A'}</div>`, '<div a="A">A</div>');
       assertRender(
+        // prettier-ignore
+        html`<div a=${'A'}>${'A'}</div>`,
+        '<div a="A">A</div>'
+      );
+      assertRender(
+        // prettier-ignore
         html`<script type="foo" a=${'A'}>${'A'}</script>`,
         '<script type="foo" a="A">A</script>'
       );
@@ -390,13 +432,7 @@ suite('render()', () => {
 
     test('comment', () => {
       render(html`<!--${'A'}-->`, container);
-      // Strip only the marker text (and not the entire comment as
-      // stripExpressionMarkers does) so that the test works on both runtime and
-      // compiled templates.
-      assert.equal(
-        container.innerHTML.replace(/lit\$[0-9]+\$/g, ''),
-        '<!----><!---->'
-      );
+      assert.equal(container.innerHTML, '<!--?node-part--><!--node-part-->');
     });
 
     test('comment with attribute-like content', () => {
@@ -637,8 +673,9 @@ suite('render()', () => {
     });
 
     test('updates when called multiple times with arrays', () => {
+      // prettier-ignore
       const ul = (list: string[]) => {
-        const items = list.map((item) => html`<li>${item}</li>`);
+        const items = list.map((item) => html`<li>${item}</li>`);        
         return html`<ul>${items}</ul>`;
       };
       render(ul(['a', 'b', 'c']), container);
@@ -733,7 +770,7 @@ suite('render()', () => {
 
     test('renders to an unquoted attribute after an unbound unquoted attribute', () => {
       assertRender(
-        html`<div foo=bar baz=${'qux'}></div>`,
+        html`<div foo="bar" baz=${'qux'}></div>`,
         '<div foo="bar" baz="qux"></div>'
       );
       assertRender(
@@ -750,14 +787,15 @@ suite('render()', () => {
     });
 
     test('renders interpolation to an unquoted attribute', () => {
-      render(html`<div foo=A${'B'}C></div>`, container);
+      render(html`<div foo="A${'B'}C"></div>`, container);
       assertContent('<div foo="ABC"></div>');
-      render(html`<div foo=${'A'}B${'C'}></div>`, container);
+      render(html`<div foo="${'A'}B${'C'}"></div>`, container);
       assertContent('<div foo="ABC"></div>');
     });
 
     test('renders interpolation to an unquoted attribute with nbsp character', () => {
       assertRender(
+        // prettier-ignore
         html`<div a=${'A'}\u00a0${'B'}></div>`,
         '<div a="A&nbsp;B"></div>'
       );
@@ -765,6 +803,7 @@ suite('render()', () => {
 
     test('renders interpolation to a quoted attribute with nbsp character', () => {
       assertRender(
+        // prettier-ignore
         html`<div a="${'A'}\u00a0${'B'}"></div>`,
         '<div a="A&nbsp;B"></div>'
       );
@@ -772,7 +811,7 @@ suite('render()', () => {
 
     test('renders non-latin attribute name and interpolated unquoted non-latin values', () => {
       assertRender(
-        html`<div ふ=ふ${'ふ'}ふ フ=フ${'フ'}フ></div>`,
+        html`<div ふ="ふ${'ふ'}ふ" フ="フ${'フ'}フ"></div>`,
         '<div ふ="ふふふ" フ="フフフ"></div>'
       );
     });
@@ -932,6 +971,7 @@ suite('render()', () => {
     });
 
     test('renders to an attribute after a node', () => {
+      // prettier-ignore
       render(html`<div>${'baz'}</div><div foo="${'bar'}"></div>`, container);
       assertContent('<div>baz</div><div foo="bar"></div>');
     });
@@ -1369,6 +1409,29 @@ suite('render()', () => {
       );
       assert.isOk(event);
     });
+
+    test('EventPart attributes must consist of one value and no extra text', () => {
+      const listener = () => {};
+
+      render(html`<div @click=${listener}></div>`, container);
+      render(html`<div @click="${listener}"></div>`, container);
+
+      assert.throws(() => {
+        render(html`<div @click="EXTRA_TEXT${listener}"></div>`, container);
+      });
+      assert.throws(() => {
+        render(html`<div @click="${listener}EXTRA_TEXT"></div>`, container);
+      });
+      assert.throws(() => {
+        render(html`<div @click="${listener}${listener}"></div>`, container);
+      });
+      assert.throws(() => {
+        render(
+          html`<div @click="${listener}EXTRA_TEXT${listener}"></div>`,
+          container
+        );
+      });
+    });
   });
 
   suite('updates', () => {
@@ -1503,6 +1566,7 @@ suite('render()', () => {
 
     test('updates an element', () => {
       let child: any = document.createElement('p');
+      // prettier-ignore
       const t = () => html`<div>${child}<div></div></div>`;
       render(t(), container);
       assertContent('<div><p></p><div></div></div>');
@@ -1537,18 +1601,3 @@ suite('render()', () => {
     );
   });
 });
-
-/**
- * Strips expression comments from provided html string.
- */
-export const stripExpressionComments = (html: string) =>
-  html.replace(/<!--\?lit\$[0-9]+\$-->|<!--\??-->/g, '');
-
-/**
- * Strips expression markers from provided html string.
- */
-export const stripExpressionMarkers = (html: string) =>
-  html.replace(/<!--\?lit\$[0-9]+\$-->|<!--\??-->|lit\$[0-9]+\$/g, '');
-
-export const stripComments = (html: string) =>
-  html.replaceAll(/<!--.*-->/g, '');

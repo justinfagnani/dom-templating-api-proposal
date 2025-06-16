@@ -1,14 +1,14 @@
+import {Directive, evaluateDirective} from './directive.js';
 import {noChange, nothing} from './sentinels.js';
 import {TemplateInstance} from './template-instance.js';
 import {TemplatePart} from './template-part.js';
 import {TemplateResult} from './template-result.js';
-import {Template, templateCache} from './template.js';
+import {getTemplate} from './template.js';
 import {createMarker, isIterable, isPrimitive} from './utils.js';
 
 export class ChildPart extends TemplatePart {
-  readonly type = TemplatePart.CHILD_PART;
-
   #committedValue: unknown = nothing;
+  #directives: Array<Directive> = [];
 
   /**
    * The part's leading marker node, if any. See `.parentNode` for more
@@ -50,13 +50,25 @@ export class ChildPart extends TemplatePart {
     return this.startNode.parentNode!;
   }
 
-  setValue(value: unknown): void {
-    if (this.endNode === null && this.startNode === null) {
+  setValue(value: unknown, directiveIndex?: number): void {
+    if (
+      this.startNode === null ||
+      (this.endNode !== null &&
+        this.startNode.parentNode !== this.endNode!.parentNode)
+    ) {
       throw new Error(
-        `This ChildPart cannot accept a value. This likely means the element containing the part was manipulated in an unsupported way outside of Lit's control such that the part's marker nodes were ejected from DOM. For example, setting the element's \`innerHTML\` or \`textContent\` can do this.`
+        `This ChildPart cannot accept a value. This likely means the element `
       );
     }
-    // value = resolveDirective(this, value);
+
+    value = evaluateDirective(
+      value,
+      this,
+      this.#directives,
+      0,
+      directiveIndex !== undefined
+    );
+
     if (isPrimitive(value)) {
       // Non-rendering child values. It's important that these do not render
       // empty text nodes to avoid issues with preventing default <slot>
@@ -69,7 +81,6 @@ export class ChildPart extends TemplatePart {
       } else if (value !== this.#committedValue && value !== noChange) {
         this.#commitText(value);
       }
-      // This property needs to remain unminified.
     } else if (value instanceof TemplateResult) {
       this.#commitTemplateResult(value as TemplateResult);
     } else if ((value as Node).nodeType !== undefined) {
@@ -115,10 +126,7 @@ export class ChildPart extends TemplatePart {
 
   #commitTemplateResult(result: TemplateResult): void {
     const {values} = result;
-    let template = templateCache.get(result.strings);
-    if (template === undefined) {
-      templateCache.set(result.strings, (template = new Template(result)));
-    }
+    const template = getTemplate(result);
 
     if (
       this.#committedValue instanceof TemplateInstance &&
@@ -194,6 +202,12 @@ export class ChildPart extends TemplatePart {
    *     DOM (used when truncating iterables)
    */
   #clear(start: ChildNode | null = this.startNode.nextSibling) {
+    if (
+      this.endNode !== null &&
+      start?.parentNode !== this.endNode?.parentNode
+    ) {
+      throw new Error('Invalid ChildPart anchor nodes');
+    }
     while (start !== this.endNode) {
       // The non-null assertion is safe because if startNode.nextSibling is
       // null, then endNode is also null, and we would not have entered this
