@@ -1,9 +1,11 @@
+import {Directive, evaluateDirective} from "./directive.js";
 import {TemplatePart} from "./template-part.js";
 
 export class ElementPart extends TemplatePart {
-  override readonly type = TemplatePart.ELEMENT_PART;
   readonly element: Element;
 
+  #directives: Array<Directive> = [];
+  
   constructor(element: Element) {
     super();
     this.element = element;
@@ -14,6 +16,6 @@ export class ElementPart extends TemplatePart {
   }
 
   override setValue(value: unknown): void {
-    value;
+    evaluateDirective(value, this, this.#directives);
   }
 }

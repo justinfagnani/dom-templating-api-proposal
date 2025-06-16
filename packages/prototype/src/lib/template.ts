@@ -1,4 +1,4 @@
-import {AttributePart} from './attribute-part.js';
+import {MultiAttributePart, SingleAttributePart} from './attribute-part.js';
 import {BooleanAttributePart} from './boolean-attribute-part.js';
 import {ChildPart} from './child-part.js';
 import {CommentPart} from './comment-part.js';
@@ -9,7 +9,7 @@ import {
   getTemplateHtml,
   marker,
 } from './get-template-html.js';
-import {PropertyPart} from './property-part.js';
+import {MultiPropertyPart, SinglePropertyPart} from './property-part.js';
 import {TemplateInstance} from './template-instance.js';
 import type {TemplatePart} from './template-part.js';
 import {TemplateResult} from './template-result.js';
@@ -98,15 +98,22 @@ export class Template {
               const sourceName = attributeNames[attrNameIndex++];
               const value = node.getAttribute(attributeName)!;
               const statics = value.split(marker);
+              const isSingleValueBinding =
+                statics.length === 2 && statics[0] === '' && statics[1] === '';
+
               const [, sigil, name] = /([.?@])?(.*)/.exec(sourceName)!;
               const partConstructor =
                 sigil === '.'
-                  ? PropertyPart
+                  ? isSingleValueBinding
+                    ? SinglePropertyPart
+                    : MultiPropertyPart
                   : sigil === '?'
                     ? BooleanAttributePart
                     : sigil === '@'
                       ? EventPart
-                      : AttributePart;
+                      : isSingleValueBinding
+                        ? SingleAttributePart
+                        : MultiAttributePart;
               parts.push({
                 part: new partConstructor(node as HTMLElement, name, statics),
                 index: nodeIndex,

@@ -1,24 +1,14 @@
-import {AttributePart} from './attribute-part.js';
+import {SingleAttributePart} from './attribute-part.js';
 import {noChange, nothing} from './sentinels.js';
 import {TemplatePart} from './template-part.js';
 
 type EventListenerWithOptions = EventListenerOrEventListenerObject &
   Partial<AddEventListenerOptions>;
 
-export class EventPart extends AttributePart {
-  override readonly type = TemplatePart.EVENT_PART;
-
+export class EventPart extends SingleAttributePart {
   #committedValue: unknown = nothing;
 
-  constructor(node: Element, name: string, strings: ReadonlyArray<string>) {
-    super(node, name, strings);
-    if (!this.isSingleValue) {
-      // TODO: add test
-      throw new Error('EventParts must only have a single value');
-    }
-  }
-
-  override setValue([newListener]: Array<unknown>) {
+  override setValue(newListener: unknown) {
     // newListener =
     //   resolveDirective(this, newListener, directiveParent, 0) ?? nothing;
     if (newListener === noChange) {
@@ -76,6 +66,6 @@ export class EventPart extends AttributePart {
   }
 
   override clone(node: Node): TemplatePart {
-    return new EventPart(node as Element, this.name, this.strings);
+    return new EventPart(node as Element, this.name);
   }
 }

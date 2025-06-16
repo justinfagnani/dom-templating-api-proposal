@@ -1,7 +1,6 @@
 import {TemplatePart} from './template-part.js';
 
 export class CommentPart extends TemplatePart {
-  override readonly type = TemplatePart.COMMENT_PART;
   readonly node: Comment;
 
   constructor(node: Comment) {

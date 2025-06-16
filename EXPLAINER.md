@@ -331,19 +331,119 @@ _TODO_
 
 _TODO_
 
-- `DOMTemplate`
-- `TemplateResult`
-- `Element.prototype.render()`
-- `Template`
-- `TemplateInstance`
-- `TemplatePart`
-- `ChildPart`
-- `AttributePart`
-- `PropertyPart`
-- `EventPart`
-- `ElementPart`
-- `CommentPart`
-- `Direcive`
+#### `DOMTemplate`
+#### `TemplateResult`
+#### `Element.prototype.render()`
+#### `Template`
+#### `TemplateInstance`
+#### `TemplatePart`
+#### `ChildPart`
+#### `AttributePart`
+#### `PropertyPart`
+#### `EventPart`
+#### `ElementPart`
+#### `CommentPart`
+#### `Direcive`
+#### `DirectiveResult`
+
+```
+class DirectiveResult {
+  readonly directiveClass: C;
+  readonly values: DirectiveParameters<InstanceType<C>>;
+}
+```
+
+
+### Directives
+
+Directives are stateful objects that can customize the behavior of a binding by
+getting direct access to the binding's TemplatePart and therefore the underlying
+DOM. Directives are an imperative hook to the declarative template system,
+through which userland code can add new delarative abstractions.
+
+A template author will typically use a directive by calling a directive function
+in a binding expression.
+
+For example, here's a template using an imagined library-defined `keyed()`
+directive to clear and recreate DOM whenever the key changes, customizing the
+DOM stability semantics of the system.
+
+```ts
+html`<div>${keyed(userId, html`<x-user userid=${userId}></x-user>`)}</div>`
+```
+
+Examples of the type of customization that a directive can do:
+- Custom change detection. A directive can store previous values and check new
+  values against them, or against the current state of the DOM.
+- Subscriptions. A directive can subscribe to an observable resource (
+  EventTarget, signal, etc.) and unsubscribe when the directive is disconnected.
+- Modifying DOM. A directive can directly modify the DOM, in order to add
+  custom DOM update behavior. For example, DOM-preserving list reording,
+  general DOM morphing, keyed templates.
+- Detaching DOM. Directives can detatch and store DOM for later reuse, like a
+  cache directive.
+
+A directive _class_ is a class that extends the `Directive` base class and
+implements an `update()` method with custom parameters:
+
+```ts
+class MyDirective extends Directive {
+  update(foo: string) {
+    // ...
+  }
+}
+```
+
+The directive class is then turned into a directive _function_ with the
+`makeDirective()` factory:
+
+```ts
+// myDirective() is a function with the same signature as MyDirective.update():
+const myDirective = makeDirective(MyDirective);
+```
+
+`makeDirective()` returns a function with the same signature as the directive
+class's `update()` method, but that _doesn't_ instantiate the class or invoke
+its `update()` method. Instead, it returns a `DirectiveResult` object that
+captures references to the directive class constructor and the arguments to the
+directive.
+
+Similar to how `TemplateResults` either update an existing template instance or
+create a new one based on the identity of the template strings, A
+`DirectiveResult` either updates an existing directive instance or creates a new
+onw based on the identy of the directive class.
+
+The indirection of directive functions that return `DirectiveResult`s that refer
+to directive classes gives us two things:
+
+- A simple function-invocation syntax for template authors, even for stateful
+  directives.
+- A simple way to write stateful directives. State on a directive is just a
+  class field.
+
+#### Invoking Directives
+
+When a TemplatePart receives a `DirectiveResult` object to `setValue()`, it must
+take some steps to either instantiate or update the directive instance.
+
+Each part has an array of directive instances. It's an array because directives
+can be nested, for example: `outerDirective(innerDirective(value))`. This style
+of composition works when the outer directive works on generic values and passes
+them through to the underlying part. [TODO]
+
+#### Why do we need directives?
+
+Directives serve a couple of important purposes in terms of the core template
+system:
+
+- They help keep the core system simpler by decoupling advanced and opinionated
+  behaviors form the core so they can be implemented in userland extensions.
+- They keep the syntax simpler by putting some binding-specific options into the
+  JavaScript expression side of the template and out of the string literal
+  side.
+
+Without directives, the built-in system would need to account for more needs
+around keying, caching, stable list-reordering, pinpoint DOM updates, and more.
 
 ### API Shapes Considered
 
