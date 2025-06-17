@@ -2,6 +2,11 @@
 
 Author: [Justin Fagnani](https://github/justinfagnani)
 
+DRAFT | Last update: 2025-06-17
+
+> [!WARNING]
+> This document is in progress.
+
 ## Introduction
 
 Creating and updating trees of DOM nodes based on data is one of the most common
@@ -13,16 +18,17 @@ for the efficient creating and updating of DOM trees from data.
 
 This proposal is based on the feature requests in
 [webcomponents/1069](https://github.com/WICG/webcomponents/issues/1069) and
-[webcomponents/1055](https://github.com/WICG/webcomponents/issues/1055).
+[webcomponents/1055](https://github.com/WICG/webcomponents/issues/1055) and
+the template parts ideas in [Template-Instantiation](https://github.com/WICG/webcomponents/blob/gh-pages/proposals/Template-Instantiation.md).
 
 ## Goals
 
 - Allow developers to write declarative markup-based templates in JavaScript to
   efficiently create and update entire DOM subtrees with no external
   library dependencies.
-- Work with today's standard JavaScript features.
-- Avoid inventing new scripting-like features, ie: expression languages, control
-  flow constructs.
+- Work with today's standard JavaScript syntax and features.
+- Avoid inventing new scripting-like features like expression languages or
+  control flow constructs.
 - Comparable or better performance to the best userland template libraries.
 - Support both efficient template re-rendering and fine-grained DOM updates with
   signals, observables, etc.
@@ -34,12 +40,10 @@ This proposal is based on the feature requests in
   ways.
 - Robustness against security attacks like XSS, gadgets, and trusted object
   forgery.
-- Provide semantics and infrastructure for a future HTML-based template system.
-- Be a suitable compile target for other template syntaxes. Especially JSX, but
-  also syntaxes like Mustache, Vue, Angular, Svelte, and more.
-- Support userland component models. Library authors should be able to build a
-  component system that uses DOM templates, where components are not web
-  components.
+- Provide the groundwork for a future HTML-based template system, and for
+  any future JSX-like JavaScript syntaxes.
+- Be a suitable compile target for other template syntaxes like JSX, Mustache,
+  Vue, Angular, Svelte, and more.
 - Enable support for server-side rendering and hydration libraries.
 - Support higher-order template utilities  in userland (i.e. DOM morphing)
 - Support for scoped custom element registries.
@@ -68,17 +72,29 @@ This proposal is based on the feature requests in
   it will require most of the same underlying infrastructure, but also
   expressions, control-flow, etc.
 
-### Related Issues and proposals
+## Problems
 
-- [Template-Instantiation](https://github.com/WICG/webcomponents/blob/gh-pages/proposals/Template-Instantiation.md)
-- [webcomponents/1069](https://github.com/WICG/webcomponents/issues/1069)
-- [webcomponents/777](https://github.com/WICG/webcomponents/issues/777)
-- [webcomponents/1055](https://github.com/WICG/webcomponents/issues/1055)
-- [webcomponents/1019](https://github.com/WICG/webcomponents/issues/1019)
-- [webcomponents/1010](https://github.com/WICG/webcomponents/issues/1010)
-- [webcomponents/1012](https://github.com/WICG/webcomponents/issues/1012)
+> [!WARNING]
+> In progress...
 
-## The DOM Templating API
+### Case 1: Complex DOM tree creation
+- Finding nodes of interest
+- Adding event listeners
+- Setting properties
+- Repeated fragments
+- Performance
+
+### Case 2: Safe user-controlled value interpolation
+- Auto-escaping
+- Trusted types
+
+### Case 3: Reactivity
+
+### Case 4: Fine-grained reactivity
+
+### Case 5: Compile targets
+
+## Proposal: The DOM Templating API
 
 This proposal introduces the DOM Templating API - an API that lets developers
 write HTML templates in JavaScript and efficiently apply them to the DOM. This
@@ -229,7 +245,7 @@ Template expressions only returns a description of DOM, not DOM itself. This is
 so that template expressions can be re-evaluated efficiently to describe updates
 to DOM, as well as initial DOM tree.
 
-When a template is rendered to the DOM for the first time, _globally_, it is
+When a template is rendered to the DOM for the first time _globally_, it is
 prepared to create a `Template` object and associated `<template>` HTML element.
 The `Template` object contains information about the `TemplatePart`s created
 from the binding locations.
@@ -321,7 +337,25 @@ _TODO_
 
 ### Creating `<template>`s from template results
 
-_TODO_
+#### 1. Generating HTML from template strings
+
+For every DOM template, we must be able to generate the HTML used to define the
+associated HTML `<template>` element, and attach the proper Template Parts to
+nodes in the `<template>` element.
+
+First, we must define the valid locations that an expression can occur in the
+template strings. Expressions outside of these valid locations will cause an
+exception during rendering.
+
+- Text position. eg `${x}` or `<p>${x}</p>`
+- Attribute value position. eg `<div foo=${x}>`, `<div foo=${x}${y}>`,
+  `<divfoo="${x}">`, `<div foo="${x} ${y}">`
+- Element position. eg `<div ${x}>`
+
+We can define an internal _Parse Template Strings_ operation that returns a
+`<template>` element with attached parts. When the parser encounters a break
+between strings, it should create and attach a template part depending on the
+syntactic location, or throw.
 
 ### Rendering
 
@@ -445,7 +479,7 @@ system:
 Without directives, the built-in system would need to account for more needs
 around keying, caching, stable list-reordering, pinpoint DOM updates, and more.
 
-### API Shapes Considered
+### Other API Shapes Considered
 
 Existing templating APIs tend to fall into one of three main categories:
 
@@ -465,3 +499,13 @@ is the best choice:
   the DOM that they create. They support the open-ended set of HTML elements.
 - Expression-based APIs are extremely expressive and flexible and allow for
   higher-order utilities to be built that process DOM descriptions.
+
+### Related Issues and proposals
+
+- [Template-Instantiation](https://github.com/WICG/webcomponents/blob/gh-pages/proposals/Template-Instantiation.md)
+- [webcomponents/1069](https://github.com/WICG/webcomponents/issues/1069)
+- [webcomponents/777](https://github.com/WICG/webcomponents/issues/777)
+- [webcomponents/1055](https://github.com/WICG/webcomponents/issues/1055)
+- [webcomponents/1019](https://github.com/WICG/webcomponents/issues/1019)
+- [webcomponents/1010](https://github.com/WICG/webcomponents/issues/1010)
+- [webcomponents/1012](https://github.com/WICG/webcomponents/issues/1012)

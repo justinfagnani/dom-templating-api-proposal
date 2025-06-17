@@ -11,6 +11,7 @@ See the [explainer document](./EXPLAINER.md) for more details.
 ### Planned Packages
 
 - `dom-scheduler-prototype`: A prototype implementation of https://github.com/WICG/webcomponents/issues/1055
+- Examples
 - A TypeScript transformer to compile JSX to DOM templates
 - A simple Preact-like demonstration framework that uses the JSX transform and
   attaches components to templates with stateful directives.
