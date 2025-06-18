@@ -374,12 +374,49 @@ events as in Vue's shorthand versions and Lit. In addition, we suggest the `?`
 prefix for boolean attributes.
 
 ```ts
-html`<button `
+html`<button @click=${handleClick}></button>`
 ```
 
 [^1]: HTML does have some facility for event handler attributes,
 but these are generally discourage and don't have access to the lexical scope
 of the template expression.
+
+##### Why can't directives be used for property and event bindings?
+
+Because directives can customize the behavior of a binding, they could be used
+to set a property or add an event handler instead of setting an attribute for
+attribute bindings. This could look something like:
+
+```ts
+html`<button click=${event(handleClick)}></button>`
+```
+
+This isn't feasible, and if it were isn't a great idea, for several reasons:
+
+- Elements cannot have duplicate attribute names, so it wouldn't be possible to
+  set an attribute and add an event handler on the same element if the attribute
+  and event shared the same name.
+- It's more verbose. Conciseness balanced with clarity are extremely important
+  for templates, and a directive approach is more characters and harder to read.
+
+  Compare:
+  ```ts
+  <button click=${event(handleClick)}>
+  ```
+  to
+  ```ts
+  <button @click=${handleClick}>
+  ```
+- It's worse for performance. Every property and event binding will require a
+  directive, which have memory and CPU time overhead. The directives will have
+  to have disconnect handlers to clean up in case the directive is dynamically
+  switched out, which is additional overhead.
+- It's more dynamic than we want. Ideally most bindings are very static and
+  always binding to the same API point - a specific attribute, property, or
+  event. This makes reasoning about a template easier for humans and for static
+  analyzers like type-checkers. The directive approach is much more dynamic and
+  instead of being able to know what a binding is bound to, a lot will be left
+  up to how specific directives behave.
 
 #### Binding Types
 
