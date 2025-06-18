@@ -306,10 +306,13 @@ where a directive imperatively updates a part.
 
 ### Template Syntax
 
-The syntax for templates is mostly just plain HTML. Templates must be
-well-formed HTML fragments. Since each template's strings are parsed separately
-as fragments, if an element is opened withing a template, it must be closed
-within the same template.
+The syntax for templates is mostly just plain HTML, with special attribute name
+prefixes for setting properties and event listeners on elements.
+
+
+Templates must be well-formed HTML fragments. Since each template's strings are
+parsed separately as fragments, if an element is opened withing a template, it
+must be closed within the same template.
 
 Within the template strings, standard JavaScript template literal embedded
 expressions may be used. Expressions create bindings to DOM Parts, and must only
@@ -322,6 +325,61 @@ Expressions cannot be used for tag or attribute _names_.
 
 Expressions can also appear in opening tag, separate from attributes, like:
 `<div ${x}></div>`. This creates an "element binding".
+
+#### Property and Event Bindings
+
+HTML elements have four main API surfaces that are used declaratively from
+client-side template systems:
+- Children
+- Attributes
+- Properties
+- Events
+
+The most popular client-side template systems in use today allow some degree of
+setting items in each of these API surfaces declaratively.
+
+Attributes, properties, and events can present an interesting problem for some
+template systems. They are all key/value APIs, where an item has a name that we
+would like to assign a value to, thus they form three separate namespaces.
+Because they are APIs on elements, template syntaxes typically try to allow all
+three namespaces in the attribute positions on elemnts.
+
+Some template systems try to merge these three separate namespaces into one, and
+then figure out - either via runtime introspection, built-in configuration
+lists - whether to set an attribute or property; or they might rely on event
+handler properties for event listeners.
+
+Other systems have explicit syntac to dismbiguate between the namespaces.
+
+|           | Attribute | Property | Event      | Boolean Attribute |
+|-----------|-----------|----------|------------|-------------------|
+| React     | `foo={}`  | `foo={}` with an `in` check | `onfoo={}` | `foo={}`<br>Has list of boolean attributes          |
+| Vue       | `v-bind:foo=""` or `:foo={}` | `:foo={}` with an `in` check<br>`:foo.prop={}`<br>`.foo={}` | `v-on:foo={}` | `foo={}`<br>truthy or falsey values determine presence|
+| Angular | `[attr.foo]=""` | `[foo]=""` | `(foo)=""` | `[attr.foo]=""`<br>truthy or falsey values determine presence |
+| Lit | `foo={}` | `.foo={}` | `@foo={}` | `?foo={}` |
+| Imperative DOM API | `setAttribute('foo')` | `.foo=` | `addEventListener('foo')` | `toggleAttribute('foo')` |
+
+Since plain HTML doesn't have a way to set properties or add arbitrary event
+listeners on elements[^1], the DOM Template API's syntax will need some addition
+to support properties and events.
+
+The goals of this proposal for additional syntax:
+- Explicit: There shouldn't be confusion or guessing as to whether a binding is
+  to an attribute, property or event.
+- Simple: The additional syntax should be easy to type.
+- Intuitive: The syntax should evoke the intention.
+
+In this proposal we suggest using single-character prefixes for properties and
+events as in Vue's shorthand versions and Lit. In addition, we suggest the `?`
+prefix for boolean attributes.
+
+```ts
+html`<button `
+```
+
+[^1]: HTML does have some facility for event handler attributes,
+but these are generally discourage and don't have access to the lexical scope
+of the template expression.
 
 #### Binding Types
 
