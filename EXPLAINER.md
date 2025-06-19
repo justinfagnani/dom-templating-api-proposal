@@ -2,24 +2,25 @@
 
 Author: [Justin Fagnani](https://github/justinfagnani)
 
-DRAFT | Last update: 2025-06-17
+DRAFT | Last update: 2025-06-19
 
 > [!WARNING]
-> This document is in progress.
+> This document is a work in progress.
 
 ## Introduction
 
 Creating and updating trees of DOM nodes based on data is one of the most common
-high-level operations performed in dynamic web applications, yet the web platform
-has no ergonomic, declarative APIs for accomplishing this.
+high-level operations performed in dynamic web applications, yet the web
+platform has no ergonomic, declarative APIs for accomplishing this.
 
 This repository proposes to add a high-level templating API to the DOM to allow
 for the efficient creating and updating of DOM trees from data.
 
 This proposal is based on the feature requests in
 [webcomponents/1069](https://github.com/WICG/webcomponents/issues/1069) and
-[webcomponents/1055](https://github.com/WICG/webcomponents/issues/1055) and
-the template parts ideas in [Template-Instantiation](https://github.com/WICG/webcomponents/blob/gh-pages/proposals/Template-Instantiation.md).
+[webcomponents/1055](https://github.com/WICG/webcomponents/issues/1055) and the
+template parts ideas in
+[Template-Instantiation](https://github.com/WICG/webcomponents/blob/gh-pages/proposals/Template-Instantiation.md).
 
 ## Goals
 
@@ -78,21 +79,39 @@ the template parts ideas in [Template-Instantiation](https://github.com/WICG/web
 > In progress...
 
 ### Case 1: Complex DOM tree creation
-- Finding nodes of interest
-- Adding event listeners
-- Setting properties
-- Repeated fragments
-- Performance
+
+A developer wants to create a complex tree of DOM elements from a set of data,
+for example a product record on a shopping site. The data includes repeated
+items, such as reviews, and optional items that will need to affect the output,
+like whether the product has images. The resulting output has interactive
+elements like buttons and inputs.
+
+Two common plain-DOM ways of approaching this are to use string interpolation
+and `innerHTML`, or to use `<template>` tags. Either approach has similar
+problems for the developer:
+
+- Finding nodes of interest: For many of the operations below, the developer has
+  to find specific nodes to operate on.
+- Adding event listeners: event listeners have to be imperatively added.  
+- Setting properties: setting a property on an element needs to be done
+  imperatively.
+- Repeated fragments: This requires mapping over data and either cloning a
+  sub-template or interpolating a string.
+- Updating: To do DOM-stable updates, reference to nodes of interest are kept to
+  be able to update their content individually when data changes.
 
 ### Case 2: Safe user-controlled value interpolation
-- Auto-escaping
-- Trusted types
+
+A developer is using `.innerHTML` to create DOM from a mixture of
+developer-controlled strings, trusted data sources, and user-controlled data.
+Their system needs to be secure against XSS attacks, so they must escape all
+user-controller data before intepolating into their trusted strings.
 
 ### Case 3: Reactivity
 
-### Case 4: Fine-grained reactivity
+### Case 4: Server-side rendering
 
-### Case 5: Compile targets
+### Case 5: Userland template library
 
 ## Proposal: The DOM Templating API
 
@@ -328,7 +347,7 @@ Expressions can also appear in opening tag, separate from attributes, like:
 
 #### Property and Event Bindings
 
-HTML elements have four main API surfaces that are used declaratively from
+DOM elements have four main API surfaces that are used declaratively from
 client-side template systems:
 - Children
 - Attributes
@@ -344,6 +363,8 @@ would like to assign a value to, thus they form three separate namespaces.
 Because they are APIs on elements, template syntaxes typically try to allow all
 three namespaces in the attribute positions on elemnts.
 
+##### Survey of template binding syntaxes
+
 Some template systems try to merge these three separate namespaces into one, and
 then figure out - either via runtime introspection, built-in configuration
 lists - whether to set an attribute or property; or they might rely on event
@@ -358,6 +379,8 @@ Other systems have explicit syntac to dismbiguate between the namespaces.
 | Angular | `[attr.foo]=""` | `[foo]=""` | `(foo)=""` | `[attr.foo]=""`<br>truthy or falsey values determine presence |
 | Lit | `foo={}` | `.foo={}` | `@foo={}` | `?foo={}` |
 | Imperative DOM API | `setAttribute('foo')` | `.foo=` | `addEventListener('foo')` | `toggleAttribute('foo')` |
+
+##### Disambiguating with sigils
 
 Since plain HTML doesn't have a way to set properties or add arbitrary event
 listeners on elements[^1], the DOM Template API's syntax will need some addition
@@ -391,11 +414,13 @@ attribute bindings. This could look something like:
 html`<button click=${event(handleClick)}></button>`
 ```
 
-This isn't feasible, and if it were isn't a great idea, for several reasons:
+This isn't a very feasible or great idea, for several reasons:
 
 - Elements cannot have duplicate attribute names, so it wouldn't be possible to
   set an attribute and add an event handler on the same element if the attribute
-  and event shared the same name.
+  and event shared the same name. Maybe the parser could be modified so allow
+  this, since the DOM wouldn't be constructed with the attribute present, but
+  that might be a large than necessary change to the parser.
 - It's more verbose. Conciseness balanced with clarity are extremely important
   for templates, and a directive approach is more characters and harder to read.
 
@@ -408,9 +433,9 @@ This isn't feasible, and if it were isn't a great idea, for several reasons:
   <button @click=${handleClick}>
   ```
 - It's worse for performance. Every property and event binding will require a
-  directive, which have memory and CPU time overhead. The directives will have
-  to have disconnect handlers to clean up in case the directive is dynamically
-  switched out, which is additional overhead.
+  directive, which have some memory and CPU time overhead. The directives will
+  have to have disconnect handlers to clean up in case the directive is
+  dynamically switched out, which is additional overhead.
 - It's more dynamic than we want. Ideally most bindings are very static and
   always binding to the same API point - a specific attribute, property, or
   event. This makes reasoning about a template easier for humans and for static
