@@ -258,31 +258,82 @@ html`
 Because templates are expressions that return values, developers can use any
 control-flow, functions, or data-structures that they want to.
 
-### Rendering and Updates
-
 Template expressions only returns a description of DOM, not DOM itself. This is
 so that template expressions can be re-evaluated efficiently to describe updates
 to DOM, as well as initial DOM tree.
-
-When a template is rendered to the DOM for the first time _globally_, it is
-prepared to create a `Template` object and associated `<template>` HTML element.
-The `Template` object contains information about the `TemplatePart`s created
-from the binding locations.
-
-When a template is rendered to a specific _location_ for the first time, its
-`<template>` element and `TemplatePart`s are cloned to create a
-`TemplateInstance`, whose parts are set to their values from the initial
-`TemplateResult`. The `TemplateInstance` is cached for the rendering location,
-and its fragment is inserted into the DOM.
-
-When a template is rendered to a location on subsequent times, the
-location's `TemplateInstance` is retrieved and its parts are set to the new
-values from the new `TemplateResult`.
 
 ## Detailed Proposal
 
 > [!WARNING]
 > The detailed proposal is under construction
+
+
+### Template processing and rendering model
+
+Template rendering happens in distinct phases:
+
+1. Template expression evaluation
+
+   Templates are written as expressions using tagged template literals, and the
+   `DOMTemplate.html` template tag. Like all template literals, templates can
+   contain expressions:
+ 
+   ```ts
+   DOMTemplate.html`<h1>Hello ${name}</h1>`;
+   ```
+ 
+   This expression captures the template strings and expression values into a
+   `TemplateResult` instance.
+
+2. Template preparation
+
+   When a template is rendered to the DOM for the first time _globally_, it is
+   prepared to create a `Template` object and associated `<template>` HTML
+   element. The `Template` object contains information about the `TemplatePart`s
+   created from the binding locations.
+
+3. Template instantiation
+
+   When a template is rendered to a specific _location_ for the first time, its
+   `<template>` element and `TemplatePart`s are cloned to create a
+   `TemplateInstance`, whose parts are set to their values from the initial
+   `TemplateResult`. The `TemplateInstance` is cached for the rendering
+   location, and its fragment is inserted into the DOM.
+
+4. Template instance updating
+
+   When a template is rendered to a location on subsequent times, the location's
+   `TemplateInstance` is retrieved and its parts are set to the new values from
+   the new `TemplateResult`.
+
+5. Fine-grained template part updates
+
+   With signal integration, when a signal bound to a template part changes, the
+   part is individually updated, independently from the containing template.
+   This update is scheduled and batched with other signal-based updates.
+
+> [!NOTE]
+> #### A refresher on tagged template literals
+> 
+> Tagged template literals have a important property that makes this proposal
+> possible. A template tag function receives a _template strings array_ as its
+> first argument, that is the same object for every invocation of the tagged
+> template literal expression.
+> 
+> ```ts
+> // A template tag function that simply returns the strings array
+> const tag = (strings) => string;
+> 
+> // A function that evaluates returns the result of tag
+> const run = (x) => tag`abc ${x} def`;
+> 
+> run(1) === run(2); // true
+> ```
+> 
+> This behavior lets us use a template expression's template strings array as both
+> a cache key to stored prepared `<template>` elements against, and as a DOM
+> template instance key to use to tell if we're re-rendering the same template to
+> the DOM.
 
 ### The `DOMTemplate` namespace object
 
@@ -473,9 +524,9 @@ exception during rendering.
 - Element position. eg `<div ${x}>`
 
 We can define an internal _Parse Template Strings_ operation that returns a
-`<template>` element with attached parts. When the parser encounters a break
-between strings, it should create and attach a template part depending on the
-syntactic location, or throw.
+`<template>` element with attached template parts. When the parser encounters a
+break between strings, it should create and attach a template part depending on
+the syntactic location, or throw.
 
 ### Rendering
 
