@@ -274,7 +274,7 @@ Template rendering happens in distinct phases:
 
 1. Template expression evaluation
 
-   Templates are written as expressions using tagged template literals, and the
+   Templates are written as expressions using tagged template literals and the
    `DOMTemplate.html` template tag. Like all template literals, templates can
    contain expressions:
  
@@ -286,6 +286,13 @@ Template rendering happens in distinct phases:
    `TemplateResult` instance.
 
 2. Template preparation
+
+   Templates are rendered to the DOM with the `Element.prototype.render()`
+   method:
+
+   ```ts
+   document.body.render(DOMTemplate.html`<h1>Hello ${name}</h1>`);
+   ```
 
    When a template is rendered to the DOM for the first time _globally_, it is
    prepared to create a `Template` object and associated `<template>` HTML
@@ -312,94 +319,105 @@ Template rendering happens in distinct phases:
    part is individually updated, independently from the containing template.
    This update is scheduled and batched with other signal-based updates.
 
-> [!NOTE]
-> #### A refresher on tagged template literals
-> 
-> Tagged template literals have a important property that makes this proposal
-> possible. A template tag function receives a _template strings array_ as its
-> first argument, that is the same object for every invocation of the tagged
-> template literal expression.
-> 
-> ```ts
-> // A template tag function that simply returns the strings array
-> const tag = (strings) => string;
-> 
-> // A function that evaluates returns the result of tag
-> const run = (x) => tag`abc ${x} def`;
-> 
-> run(1) === run(2); // true
-> ```
-> 
-> This behavior lets us use a template expression's template strings array as both
-> a cache key to stored prepared `<template>` elements against, and as a DOM
-> template instance key to use to tell if we're re-rendering the same template to
-> the DOM.
+### Template Expressions
 
-### The `DOMTemplate` namespace object
-
-`DOMTemplate` is a new global namespace object, that holds the template literal
-tags used to author templates, and other utilities:
+A template expression is a tagged template literal using one of the `html`,
+`svg`, or `mathml` template tags available on the `DOMTemplate` namespace
+object.
 
 ```ts
-class DOMTemplate {
-  static html: (strings, ...values) => TemplateResult;
-  static svg: (strings, ...values) => TemplateResult;
-  static mathml: (strings, ...values) => TemplateResult;
-  static nothing: Symbol;
-  static noChange: Symbol;
-}
+const {html} = DOMTemplate;
+
+html`<h1>Hello</h1>`
 ```
 
-#### `DOMTemplate.html`
+Each of these template tags returns a `TemplateResult`.
 
-A template literal tag for defining templates in the HTML namespace.
+```ts
+(strings: TemplateStringsArray, ...value: Array<unknown>) => TemplateResult
+```
 
-#### `DOMTemplate.svg`
+`TemplateResult` is a class that holds a template expressions tag type, strings,
+and values, and is used by `render()` and `ChildPart`s to create and update DOM.
 
-A template literal tag for defining templates in the SVG namespace.
+#### Syntax
 
-#### `DOMTemplate.html`
+The syntax for templates is plain HTML, with two additions:
+- Template literal expressions are allowed in text, attribute value, and
+  "element" positions. These expressions create template parts and bindings to
+  them.
+- The special attribute name prefixes `.`, `@`, and `?` create property, event
+  listener, and boolean attribute parts instead of plain attribute parts.
 
-A template literal tag for defining templates in the MathML namespace.
+##### Well-formedness
 
-#### `DOMTemplate.nothing`
+Templates _should_ be well-formed HTML fragments. Since each template's strings
+are parsed independently, each resulting template's content will be a complete
+fragment. This means that if an element is opened withing a template, it must be
+closed within the same template, or will be closed by the existing fragment
+parsing algorithm.
 
-A sentinel value that signifies that "nothing" should be rendered to a part.
-`nothing` behaves the same as nullish values for child binding, but it will
-remove an attribute when used anywhere in an attribute binding.
+> [!WARNING]
+> 
+> In the userland prototype of this system non-well-formed templates can have
+> undefined behavior.
+> 
+> The prototype cannot detect when expressions have been re-ordered by the
+> parser due to their containing nodes being moved.
+>
+> For example, this template:
+> ```ts
+> html`
+>   <table>
+>     <tr><td>${x}</td></tr>
+>     <footer>${title}</footer>
+>   </table>
+> `
+> ```
+>
+> will result in a DOM structure of:
+> ```html
+> <footer></footer>
+> <table>
+>   <tr><td></td></tr>
+> </table>
+> ```
+> and this will cause the values to be bound in the wrong order because values
+> are associated with parts by order.
+>
+> The native implementation might be able to order the template parts list by
+> the order they appear in the template strings, not the DOM, and fix this
+> issue, or it could possibly throw on non-well-formed templates.
 
-#### `DOMTemplate.noChange`
-
-A sentinel value that signifies that the currently rendered value in the DOM
-should no change. This is useful for conditionally skipping work, and in cases
-where a directive imperatively updates a part.
-
-### Template Syntax
-
-The syntax for templates is mostly just plain HTML, with special attribute name
-prefixes for setting properties and event listeners on elements.
-
-
-Templates must be well-formed HTML fragments. Since each template's strings are
-parsed separately as fragments, if an element is opened withing a template, it
-must be closed within the same template.
+##### Expressions
 
 Within the template strings, standard JavaScript template literal embedded
 expressions may be used. Expressions create bindings to DOM Parts, and must only
-be placed at valid locations. These locations are the mutable parts of the DOM:
+be placed at valid locations:
 
-- Child/text, ie: `<div>${x}</div>`
-- Attribute value, ie: `<input value=${x}>`
+- Child/text, eg: `<div>${x}</div>`
+- Attribute value, either unquoted (`<input value=${x}>`) or quoted
+  (`<input value="${x} ${y}">`).
+- In an opening tag, separate from attributes, like: `<div ${x}></div>`. This
+  creates an "element binding".
+  <!-- TODO (justinfagnani): find the spec name for this location -->
 
-Expressions cannot be used for tag or attribute _names_.
+Aside from element bindings, hese locations are the mutable parts of the DOM.
+Expressions cannot be used immutable parts like tag or attribute _names_.
 
-Expressions can also appear in opening tag, separate from attributes, like:
-`<div ${x}></div>`. This creates an "element binding".
+Multiple expressions may appear in an attribute value if the value is quoted, or
+if the expressions have no space between them.
+
+There must be space between an unquoted attribute expression and any following
+attribute name.
 
 #### Property and Event Bindings
 
-DOM elements have four main API surfaces that are used declaratively from
-client-side template systems:
+This template API allows for binding to properties and events as well as
+attributes.
+
+This is critical because DOM elements have four main API surfaces that are used
+declaratively from client-side template systems:
 - Children
 - Attributes
 - Properties
@@ -501,6 +519,70 @@ This isn't a very feasible or great idea, for several reasons:
 - Property bindings:
 - Event listener bindings:
 - Element bindings:
+
+> [!NOTE]
+> #### A refresher on tagged template literals
+> 
+> Tagged template literals have a important property that makes this proposal
+> possible. A template tag function receives a _template strings array_ as its
+> first argument, that is the same object for every invocation of the tagged
+> template literal expression.
+> 
+> ```ts
+> // A template tag function that simply returns the strings array
+> const tag = (strings) => string;
+> 
+> // A function that evaluates returns the result of tag
+> const run = (x) => tag`abc ${x} def`;
+> 
+> run(1) === run(2); // true
+> ```
+> 
+> This behavior lets us use a template expression's template strings array as both
+> a cache key to stored prepared `<template>` elements against, and as a DOM
+> template instance key to use to tell if we're re-rendering the same template to
+> the DOM.
+
+### The `DOMTemplate` namespace object
+
+`DOMTemplate` is a new global namespace object, that holds the template literal
+tags used to author templates, and other utilities:
+
+```ts
+class DOMTemplate {
+  static html: (strings, ...values) => TemplateResult;
+  static svg: (strings, ...values) => TemplateResult;
+  static mathml: (strings, ...values) => TemplateResult;
+  static nothing: Symbol;
+  static noChange: Symbol;
+}
+```
+
+#### `DOMTemplate.html`
+
+A template literal tag for defining templates in the HTML namespace.
+
+#### `DOMTemplate.svg`
+
+A template literal tag for defining templates in the SVG namespace.
+
+#### `DOMTemplate.html`
+
+A template literal tag for defining templates in the MathML namespace.
+
+#### `DOMTemplate.nothing`
+
+A sentinel value that signifies that "nothing" should be rendered to a part.
+`nothing` behaves the same as nullish values for child binding, but it will
+remove an attribute when used anywhere in an attribute binding.
+
+#### `DOMTemplate.noChange`
+
+A sentinel value that signifies that the currently rendered value in the DOM
+should no change. This is useful for conditionally skipping work, and in cases
+where a directive imperatively updates a part.
+
+
 
 ### `Element.prototype.render()`
 
@@ -674,6 +756,7 @@ is the best choice:
 ### Related Issues and proposals
 
 - [Template-Instantiation](https://github.com/WICG/webcomponents/blob/gh-pages/proposals/Template-Instantiation.md)
+- [JavaScript Signals standard proposal](https://github.com/tc39/proposal-signals)
 - [webcomponents/1069](https://github.com/WICG/webcomponents/issues/1069)
 - [webcomponents/777](https://github.com/WICG/webcomponents/issues/777)
 - [webcomponents/1055](https://github.com/WICG/webcomponents/issues/1055)
