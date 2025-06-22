@@ -2,7 +2,7 @@
 
 Author: [Justin Fagnani](https://github/justinfagnani)
 
-DRAFT | Last update: 2025-06-19
+DRAFT | Last update: 2025-06-22
 
 > [!WARNING]
 > This document is a work in progress.
@@ -209,12 +209,6 @@ property, event, or boolean attribute bindings respectively:
 html`<input .value=${x} @input=${handleInput} ?required=${required}>`
 ```
 
-> [!NOTE]
-> These sigils do not require HTML parser changes, since they are valid,
-> parseable attribute names. They are also extremely unlikely to conflict with
-> any real-world attribute names because they are _invalid_ to use with
-> `setAttribute()`.
-
 ### Expressions, composition, and control-flow
 
 Because templates are written using standard JavaScript tagged template
@@ -411,7 +405,15 @@ if the expressions have no space between them.
 There must be space between an unquoted attribute expression and any following
 attribute name.
 
-#### Property and Event Bindings
+#### Binding types
+
+##### Child/text bindings
+##### Attribute bindings
+##### Property bindings
+##### Event listener bindings
+##### Element bindings
+
+#### Property and event binding Syntax
 
 This template API allows for binding to properties and events as well as
 attributes.
@@ -460,6 +462,7 @@ The goals of this proposal for additional syntax:
   to an attribute, property or event.
 - Simple: The additional syntax should be easy to type.
 - Intuitive: The syntax should evoke the intention.
+- Safe: Low chance of collision with real attribute names.
 
 In this proposal we suggest using single-character prefixes for properties and
 events as in Vue's shorthand versions and Lit. In addition, we suggest the `?`
@@ -468,6 +471,12 @@ prefix for boolean attributes.
 ```ts
 html`<button @click=${handleClick}></button>`
 ```
+
+> [!NOTE]
+> These sigils do not require HTML parser changes, since they are valid,
+> parseable attribute names. They are also extremely unlikely to conflict with
+> any real-world attribute names because they are _invalid_ to use with DOM APIs
+> like `setAttribute()`.
 
 [^1]: HTML does have some facility for event handler attributes,
 but these are generally discourage and don't have access to the lexical scope
@@ -485,40 +494,34 @@ html`<button click=${event(handleClick)}></button>`
 
 This isn't a very feasible or great idea, for several reasons:
 
-- Elements cannot have duplicate attribute names, so it wouldn't be possible to
-  set an attribute and add an event handler on the same element if the attribute
-  and event shared the same name. Maybe the parser could be modified so allow
-  this, since the DOM wouldn't be constructed with the attribute present, but
-  that might be a large than necessary change to the parser.
-- It's more verbose. Conciseness balanced with clarity are extremely important
-  for templates, and a directive approach is more characters and harder to read.
+1. Elements cannot have duplicate attribute names, so it wouldn't be possible to
+   set an attribute and add an event handler on the same element if the
+   attribute and event shared the same name. Maybe the parser could be modified
+   so allow this, since the DOM wouldn't be constructed with the attribute
+   present, but that might be a large than necessary change to the parser.
+2. It's more verbose. Conciseness balanced with clarity are extremely important
+   for templates, and a directive approach is more characters and harder to
+   read.
+   
+   Compare:
+   ```ts
+   <button click=${event(handleClick)}>
+   ```
+   to
+   ```ts
+   <button @click=${handleClick}>
+   ```
+3. It's worse for performance. Every property and event binding will require a
+   directive, which have some memory and CPU time overhead. The directives will
+   have to have disconnect handlers to clean up in case the directive is
+   dynamically switched out, which is additional overhead.
+4. It's more dynamic than we want. Ideally most bindings are very static and
+   always binding to the same API point - a specific attribute, property, or
+   event. This makes reasoning about a template easier for humans and for static
+   analyzers like type-checkers. The directive approach is much more dynamic and
+   instead of being able to know what a binding is bound to, a lot will be left
+   up to how specific directives behave.
 
-  Compare:
-  ```ts
-  <button click=${event(handleClick)}>
-  ```
-  to
-  ```ts
-  <button @click=${handleClick}>
-  ```
-- It's worse for performance. Every property and event binding will require a
-  directive, which have some memory and CPU time overhead. The directives will
-  have to have disconnect handlers to clean up in case the directive is
-  dynamically switched out, which is additional overhead.
-- It's more dynamic than we want. Ideally most bindings are very static and
-  always binding to the same API point - a specific attribute, property, or
-  event. This makes reasoning about a template easier for humans and for static
-  analyzers like type-checkers. The directive approach is much more dynamic and
-  instead of being able to know what a binding is bound to, a lot will be left
-  up to how specific directives behave.
-
-#### Binding Types
-
-- Child/text bindings:
-- Attribute bindings:
-- Property bindings:
-- Event listener bindings:
-- Element bindings:
 
 > [!NOTE]
 > #### A refresher on tagged template literals
@@ -542,6 +545,40 @@ This isn't a very feasible or great idea, for several reasons:
 > a cache key to stored prepared `<template>` elements against, and as a DOM
 > template instance key to use to tell if we're re-rendering the same template to
 > the DOM.
+
+### Rendering
+
+A template expression is side-effect free. In order to create or update DOM we
+must render it with the `Element.prototype.render()` method:
+
+```ts
+interface Element {
+  render(value: unknown): void;
+}
+```
+
+`render()` looks up a ChildPart for the element, called the "root part", from
+a cache. If a root part is not found for the element, the element is cleared and
+a new root ChildPart is created, attached to the element, and cached.
+
+The value passed to `render()` is then assigned to the root ChildPart by calling
+`ChildPart.prototype.setValue()`.
+
+Aside from creating and caching a ChildPart, the work of rendering a new
+template or updating an existing one is done by ChildPart. Like a child
+expression and `ChildPart.prototype.setValue()`, `render()` takes any renderable
+value[^2].
+
+[^2]: A renderable value is any value that's valid for a child/text
+expression, such as a TemplateResult, string, number, array. See the ChildPart
+section.
+
+### Template Preparation
+
+When a template expression is rendered for this first time, it is prepared to
+create a `Template` object and `<template>` element.
+
+_TODO_
 
 ### The `DOMTemplate` namespace object
 

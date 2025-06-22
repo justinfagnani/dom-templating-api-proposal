@@ -16,7 +16,7 @@ export const render = (
 
   let part = rootParts.get(container);
   if (part === undefined) {
-    const startNode = createMarker();;
+    const startNode = createMarker();
     container.append(startNode);
     part = new ChildPart(startNode);
     rootParts.set(container, part);
