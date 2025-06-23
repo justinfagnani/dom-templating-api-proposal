@@ -261,7 +261,6 @@ to DOM, as well as initial DOM tree.
 > [!WARNING]
 > The detailed proposal is under construction
 
-
 ### Template processing and rendering model
 
 Template rendering happens in distinct phases:
@@ -412,6 +411,7 @@ attribute name.
 ##### Property bindings
 ##### Event listener bindings
 ##### Element bindings
+##### Comment bindings
 
 #### Property and event binding Syntax
 
@@ -578,9 +578,133 @@ section.
 When a template expression is rendered for this first time, it is prepared to
 create a `Template` object and `<template>` element.
 
+The template strings are parsed with something similar to the fragment parsing
+algorithm. Each template string is given to the parser, and at the end of each
+string except the last, either a Part is created or an error is thrown.
+
+The type of Part created is determined by the syntactic position at the end of
+the string, or a the end of the current attribute value.
+
+#### By example
+
+##### ChildPart
+```ts
+html`a ${x} b`
+// or
+html`<div> a ${x} b </div>`
+```
+
+##### SingleAttributePart
+```ts
+html`<div foo=${x}></div>`
+// or
+html`<div foo="${x}"></div>`
+```
+
+##### MultiAttributePart
+```ts
+html`<div foo=${x}${y}></div>`
+// or
+html`<div foo="${x}${y}"></div>`
+// or
+html`<div foo="a ${x} b"></div>`
+```
+
+##### SinglePropertyPart
+```ts
+html`<div .foo=${x}></div>`
+// or
+html`<div .foo="${x}"></div>`
+```
+
+##### MultiPropertyPart
+```ts
+html`<div .foo=${x}${y}></div>`
+// or
+html`<div .foo="${x}${y}"></div>`
+// or
+html`<div .foo="a ${x} b"></div>`
+```
+
+##### BooleanAttributePart
+```ts
+html`<div ?foo=${x}></div>`
+// or
+html`<div ?foo="${x}"></div>`
+```
+
+##### EventPart
+```ts
+html`<div @foo=${x}></div>`
+// or
+html`<div @foo="${x}"></div>`
+```
+
+##### ElementPart
+```ts
+html`<div ${x}></div>`
+```
+
+##### CommentPart
+```ts
+html`<!-- a ${x} -->`
+```
+
+##### Part creation logic
+
+- If the position is text, create and attach a ChildPart
+- Else if the position is attribute value, then:
+  - Continue to parse template strings until the end of the attribute value
+    (ending quote or whitespace)
+  - If the binding controls the whole attribute value (the last character of the
+    preceding string starts the attribute value and the first character of the
+    next string ends the attribute value) then
+    - If the attribute name starts with a `.`, create and attach a
+      SinglePropertyPart.
+    - Else if the attribute name start with a `@`, create and attach a
+      EventPart.
+    - Else if the attribute name start with a `?`, create and attach a
+      BooleanAttributePart.
+    - Else create and attach a SingleAttributePart.
+  - Else if the binding is an interpolation with static string portions of the
+    attribute value, or has multiple bindings in the attribtue value, then
+    - If the attribute name starts with a `.`, create and attach a
+      MultiPropertyPart.
+    - If the attribute name starts with `@` or `?`, throw.
+    - Else create and attach a MultiAttributePart.
+- Else if the position is attribute name
+  - If the next string starts with whitespace or tag end, create an attach an
+    ElementPart
+  - Else throw
+- Else if the position is content text, create and attach a ContentPart
+- Else throw
+
+Parts are attached by giving them references to anchor nodes and pushing them
+onto a `parts` array. Any time an attribute-like part is attached, its attribute
+name and value are removed from the template DOM.
+
+The resulting DOM is parsed into the content fragment of a `<template>`.
+
+A `Template` object is then constructed with references to the `<template>`
+element and the `parts` array.
+
+### Template instantiation
+
 _TODO_
 
-### The `DOMTemplate` namespace object
+### Template instance updating
+
+_TODO_
+
+### Fine-grained template part updates
+
+_TODO_
+
+### API
+
+_TODO_
+
+#### `DOMTemplate`
 
 `DOMTemplate` is a new global namespace object, that holds the template literal
 tags used to author templates, and other utilities:
@@ -595,68 +719,43 @@ class DOMTemplate {
 }
 ```
 
-#### `DOMTemplate.html`
+##### `DOMTemplate.html`
 
 A template literal tag for defining templates in the HTML namespace.
 
-#### `DOMTemplate.svg`
+##### `DOMTemplate.svg`
 
 A template literal tag for defining templates in the SVG namespace.
 
-#### `DOMTemplate.html`
+##### `DOMTemplate.html`
 
 A template literal tag for defining templates in the MathML namespace.
 
-#### `DOMTemplate.nothing`
+##### `DOMTemplate.nothing`
 
 A sentinel value that signifies that "nothing" should be rendered to a part.
 `nothing` behaves the same as nullish values for child binding, but it will
 remove an attribute when used anywhere in an attribute binding.
 
-#### `DOMTemplate.noChange`
+##### `DOMTemplate.noChange`
 
 A sentinel value that signifies that the currently rendered value in the DOM
 should no change. This is useful for conditionally skipping work, and in cases
 where a directive imperatively updates a part.
 
-
-
-### `Element.prototype.render()`
-
-_TODO_
-
-### Creating `<template>`s from template results
-
-#### 1. Generating HTML from template strings
-
-For every DOM template, we must be able to generate the HTML used to define the
-associated HTML `<template>` element, and attach the proper Template Parts to
-nodes in the `<template>` element.
-
-First, we must define the valid locations that an expression can occur in the
-template strings. Expressions outside of these valid locations will cause an
-exception during rendering.
-
-- Text position. eg `${x}` or `<p>${x}</p>`
-- Attribute value position. eg `<div foo=${x}>`, `<div foo=${x}${y}>`,
-  `<divfoo="${x}">`, `<div foo="${x} ${y}">`
-- Element position. eg `<div ${x}>`
-
-We can define an internal _Parse Template Strings_ operation that returns a
-`<template>` element with attached template parts. When the parser encounters a
-break between strings, it should create and attach a template part depending on
-the syntactic location, or throw.
-
-### Rendering
-
-_TODO_
-
-### API
-
-_TODO_
-
-#### `DOMTemplate`
 #### `TemplateResult`
+
+`TemplateResult` is a class that captures the template type, static strings and
+values from a template expression:
+
+```ts
+class TemplateResult {
+  readonly kind: 'html' | 'svg' | 'mathml';
+  readonly strings: TemplateStringsArray;
+  readonly values: Array<unknown>;
+}
+```
+
 #### `Element.prototype.render()`
 #### `Template`
 #### `TemplateInstance`
