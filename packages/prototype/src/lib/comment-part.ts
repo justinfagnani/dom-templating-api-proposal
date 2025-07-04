@@ -17,4 +17,8 @@ export class CommentPart extends TemplatePart {
   override setValue(value: unknown): void {
     value;
   }
+
+  override setConnected(_connected: boolean): void {
+    throw new Error('Not implemented: CommentPart.setConnected');
+  }
 }

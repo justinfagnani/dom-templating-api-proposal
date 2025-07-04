@@ -24,4 +24,10 @@ export class TemplateInstance {
       }
     }
   }
+
+  setConnected(connected: boolean) {
+    for (const part of this.parts) {
+      part.setConnected(connected);
+    }
+  }
 }

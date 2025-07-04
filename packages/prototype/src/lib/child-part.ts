@@ -1,4 +1,4 @@
-import {Directive, evaluateDirective} from './directive.js';
+import {Directive, evaluateWithDirectives} from './directive.js';
 import {noChange, nothing} from './sentinels.js';
 import {TemplateInstance} from './template-instance.js';
 import {TemplatePart} from './template-part.js';
@@ -61,7 +61,7 @@ export class ChildPart extends TemplatePart {
       );
     }
 
-    value = evaluateDirective(
+    value = evaluateWithDirectives(
       value,
       this,
       this.#directives,
@@ -90,6 +90,27 @@ export class ChildPart extends TemplatePart {
     } else {
       // Fallback, will render the string representation
       this.#commitText(value);
+    }
+  }
+
+  setConnected(connected: boolean): void {
+    // NOTE: This is a naive implementation that assumes that any child of this
+    // part may have a directive under it that needs to be connected or
+    // disconnected. This implementation will traverse the whole subtree of
+    // this part, which is not ideal, but it is simple and has the correct
+    // observable behavior.
+    // A more efficient implementation would only connect/disconnect subtrees
+    // that have directives with `connectedCallback` or `disconnectedCallback`
+    // methods.
+    if (this.#committedValue instanceof TemplateInstance) {
+      this.#committedValue.setConnected(connected);
+    }
+    for (const directive of this.#directives) {
+      if (connected) {
+        directive.connectedCallback?.();
+      } else {
+        directive.disconnectedCallback?.();
+      }
     }
   }
 
@@ -190,6 +211,11 @@ export class ChildPart extends TemplatePart {
     if (partIndex < itemParts.length) {
       // itemParts always have end nodes
       this.#clear(itemPart && itemPart.endNode!.nextSibling);
+
+      // Disconnect the item parts
+      for (let i = partIndex; i < itemParts.length; i++) {
+        itemParts[i].setConnected(false);
+      }
       // Truncate the parts array so _value reflects the current state
       itemParts.length = partIndex;
     }
@@ -202,6 +228,11 @@ export class ChildPart extends TemplatePart {
    *     DOM (used when truncating iterables)
    */
   #clear(start: ChildNode | null = this.startNode.nextSibling) {
+    // TODO: this is done too many times for arrays
+    if (this.#committedValue instanceof TemplateInstance) {
+      this.#committedValue.setConnected(false);
+    }
+
     if (
       this.endNode !== null &&
       start?.parentNode !== this.endNode?.parentNode

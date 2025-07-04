@@ -348,7 +348,7 @@ suite('directives', () => {
     });
   });
 
-  suite('async directives', () => {
+  suite('setValue', () => {
     class ADirective extends Directive {
       value: unknown;
       promise!: Promise<unknown>;
@@ -423,22 +423,134 @@ suite('directives', () => {
 
       assertContent(`<div>resolved2</div>`);
     });
+  });
 
-    // test('async directives change to disconnected in ChildPart', async () => {
-    //   const template = (promise: Promise<unknown>) =>
-    //     html`<div>${aDirective(promise)}</div>`;
-    //   const promise = Promise.resolve('resolved1');
-    //   const part = assertRender(template(promise), `<div>initial</div>`);
-    //   assert.isTrue(aDirectiveInst.isConnected);
-    //   part.setConnected(false);
-    //   assertContent(`<div>initial</div>`);
-    //   await promise;
-    //   assert.isFalse(aDirectiveInst.isConnected);
-    //   assertContent(`<div>resolved1</div>`);
-    //   part.setConnected(true);
-    //   assert.isTrue(aDirectiveInst.isConnected);
-    //   assertContent(`<div>resolved1</div>`);
-    // });
+  suite('connection/disconnection', () => {
+    let log: Array<string> = [];
+    // let part: TemplatePart | undefined;
+    let directiveInstance: AsyncDirective | undefined;
+    let instanceId = 0;
+
+    setup(() => {
+      log = [];
+      // part = undefined;
+      directiveInstance = undefined;
+      instanceId = 0;
+    });
+    class AsyncDirective extends Directive {
+      isConnected = false;
+      instanceId = ++instanceId;
+
+      constructor(part: TemplatePart, index: number) {
+        super(part, index);
+        directiveInstance = this;
+      }
+
+      override update(value: unknown) {
+        return value;
+      }
+
+      override connectedCallback() {
+        log.push('connected:' + this.instanceId);
+        this.isConnected = true;
+      }
+
+      override disconnectedCallback() {
+        log.push('disconnected:' + this.instanceId);
+        this.isConnected = false;
+      }
+    }
+    const asyncDirective = makeDirective(AsyncDirective);
+
+    test('connects and disconnects within a child expression', async () => {
+      const template = (value: unknown, connect: boolean) =>
+        html`<div>${connect ? asyncDirective(value) : 'X'}</div>`;
+
+      assertRender(template('A', true), `<div>A</div>`);
+
+      assert.isOk(directiveInstance);
+      assert.isTrue(directiveInstance.isConnected);
+
+      assertRender(template('B', false), `<div>X</div>`);
+      assert.isFalse(directiveInstance.isConnected);
+
+      assertRender(template('C', true), `<div>C</div>`);
+      assert.isTrue(directiveInstance.isConnected);
+
+      assert.deepEqual(log, ['connected:1', 'disconnected:1', 'connected:2']);
+    });
+
+    test('connects and disconnects within an attribute expression', async () => {
+      const template = (value: unknown, connect: boolean) =>
+        html`<div foo=${connect ? asyncDirective(value) : 'X'}></div>`;
+
+      assertRender(template('A', true), `<div foo="A"></div>`);
+
+      assert.isOk(directiveInstance);
+      assert.isTrue(directiveInstance.isConnected);
+
+      assertRender(template('B', false), `<div foo="X"></div>`);
+      assert.isFalse(directiveInstance.isConnected);
+
+      assertRender(template('C', true), `<div foo="C"></div>`);
+      assert.isTrue(directiveInstance.isConnected);
+
+      assert.deepEqual(log, ['connected:1', 'disconnected:1', 'connected:2']);
+    });
+
+    test('connects and disconnects within nested template', async () => {
+      const template = (value: unknown, connect: boolean) =>
+        // prettier-ignore
+        html`<div>${
+          connect ? html`<span>${asyncDirective(value)}</span>` : 'X'
+        }</div>`;
+
+      assertRender(template('A', true), `<div><span>A</span></div>`);
+
+      assert.isOk(directiveInstance);
+      assert.isTrue(directiveInstance.isConnected);
+
+      assertRender(template('B', false), `<div>X</div>`);
+      assert.isFalse(directiveInstance.isConnected);
+
+      const part = assertRender(
+        template('C', true),
+        `<div><span>C</span></div>`
+      );
+      assert.isTrue(directiveInstance.isConnected);
+
+      part.setConnected(false);
+      assert.isFalse(directiveInstance.isConnected);
+
+      part.setConnected(true);
+      assert.isTrue(directiveInstance.isConnected);
+
+      assert.deepEqual(log, [
+        'connected:1',
+        'disconnected:1',
+        'connected:2',
+        'disconnected:2',
+        'connected:2',
+      ]);
+    });
+
+    test('connects and disconnects within nested directive', async () => {
+      const template = (value: unknown, connect: boolean) =>
+        html`<div>${passthrough(connect ? asyncDirective(value) : 'X')}</div>`;
+
+      assertRender(template('A', true), `<div>A</div>`);
+
+      assert.isOk(directiveInstance);
+      assert.isTrue(directiveInstance.isConnected);
+
+      assertRender(template('B', false), `<div>X</div>`);
+      assert.isFalse(directiveInstance.isConnected);
+
+      assertRender(template('C', true), `<div>C</div>`);
+      assert.isTrue(directiveInstance.isConnected);
+
+      assert.deepEqual(log, ['connected:1', 'disconnected:1', 'connected:2']);
+    });
 
     // test('async directives render while disconnected in ChildPart', async () => {
     //   const template = (v: unknown) => html`<div>${v}</div>`;

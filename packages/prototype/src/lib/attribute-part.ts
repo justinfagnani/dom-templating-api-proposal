@@ -1,4 +1,4 @@
-import {Directive, evaluateDirective} from './directive.js';
+import {Directive, evaluateWithDirectives} from './directive.js';
 import {noChange, nothing} from './sentinels.js';
 import {TemplatePart} from './template-part.js';
 import {isPrimitive} from './utils.js';
@@ -29,13 +29,23 @@ export class SingleAttributePart extends TemplatePart {
   }
 
   setValue(value: unknown) {
-    value = evaluateDirective(value, this, this.#directives);
+    value = evaluateWithDirectives(value, this, this.#directives);
     if (
       !isPrimitive(value) ||
       (value !== this.#committedValue && value !== noChange)
     ) {
       this.#committedValue = value;
       this.commitValue(value);
+    }
+  }
+
+  override setConnected(connected: boolean): void {
+    for (const directive of this.#directives) {
+      if (connected) {
+        directive.connectedCallback?.();
+      } else {
+        directive.disconnectedCallback?.();
+      }
     }
   }
 
@@ -100,6 +110,12 @@ export class MultiAttributePart extends TemplatePart {
     }
   }
 
+  override setConnected(connected: boolean): void {
+    for (const child of this.#childParts) {
+      child.setConnected(connected);
+    }
+  }
+
   protected commitValue(value: unknown): void {
     if (value === nothing) {
       this.element.removeAttribute(this.name);
@@ -140,9 +156,19 @@ export class PartialAttributePart extends TemplatePart {
     this.#parent.setValue(newValues);
   }
 
+  override setConnected(connected: boolean): void {
+    for (const directive of this.#directives) {
+      if (connected) {
+        directive.connectedCallback?.();
+      } else {
+        directive.disconnectedCallback?.();
+      }
+    }
+  }
+
   /** @internal */
   _setValue(value: unknown) {
-    value = evaluateDirective(value, this, this.#directives);
+    value = evaluateWithDirectives(value, this, this.#directives);
     const changed =
       !isPrimitive(value) ||
       (value !== this.#committedValue && value !== noChange);

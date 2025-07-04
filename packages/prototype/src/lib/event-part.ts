@@ -1,5 +1,5 @@
 import {SingleAttributePart} from './attribute-part.js';
-import {type Directive, evaluateDirective} from './directive.js';
+import {type Directive, evaluateWithDirectives} from './directive.js';
 import {noChange, nothing} from './sentinels.js';
 import {TemplatePart} from './template-part.js';
 
@@ -15,7 +15,7 @@ export class EventPart extends SingleAttributePart {
       return;
     }
     newListener =
-      evaluateDirective(newListener, this, this.#directives) ?? nothing;
+      evaluateWithDirectives(newListener, this, this.#directives) ?? nothing;
     const oldListener = this.#committedValue;
 
     // If the new value is nothing or any options change we have to remove the

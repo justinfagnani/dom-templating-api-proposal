@@ -20,6 +20,11 @@ export type DirectiveParameters<C extends Directive> = Parameters<C['update']>;
  * the directive is applied to a template part, or reused when the
  * template is re-applied to a part that already has a directive instance of the
  * same class.
+ *
+ * DirectiveResults may be nested, meaning that when they're evaluated by
+ * evaluateWithDirectives() they evaluate to another DirectiveResult, allowing
+ * for a chain of directives to be applied to a single template part. Each
+ * directive in the chain is preserved in the `directives` array of the part.
  */
 export class DirectiveResult<C extends DirectiveClass = DirectiveClass> {
   readonly directiveClass: C;
@@ -49,9 +54,9 @@ export abstract class Directive {
 
   abstract update(...props: Array<unknown>): unknown;
 
-  declare connectedCallback: () => void;
+  connectedCallback?(): void;
 
-  declare disconnectedCallback: () => void;
+  disconnectedCallback?(): void;
 
   /**
    * Sets the value of the directive and the part its attached to.
@@ -79,7 +84,21 @@ export const makeDirective =
   (...values: DirectiveParameters<InstanceType<C>>): DirectiveResult<C> =>
     new DirectiveResult(c, values);
 
-export const evaluateDirective = (
+/**
+ * Evaluates a value, which may be a DirectiveResult, and updates the given
+ * directive chain accordingly.
+ *
+ * @param value
+ * @param part
+ * @param directives The *mutable* array of directives that are currently
+ *   attached to the part. This array is updated in place to reflect the
+ *   current state of the directive chain. Directive instances that are no
+ *   longer needed are removed from this array.
+ * @param index
+ * @param fromDirective
+ * @returns
+ */
+export const evaluateWithDirectives = (
   value: unknown,
   part: TemplatePart,
   directives: Array<Directive>,
@@ -105,15 +124,23 @@ export const evaluateDirective = (
       ) {
         // If the directive is not the same as the previous one, we need to
         // create a new directive instance.
-        // TODO: clear and disconnect the tail of the directives array
+
+        // First, if the current directive is already defined, we need to
+        // disconnect it before replacing it.
+        directive?.disconnectedCallback?.();
+
         directive = directives[index] =
           new (value.directiveClass as DirectiveClass)(part, index);
+        directive.connectedCallback?.();
       }
       value = directive.update(...value.values);
     }
-    value = evaluateDirective(value, part, directives, index + 1);
+    value = evaluateWithDirectives(value, part, directives, index + 1);
   } else {
-    // TODO: disconnect unused directives
+    for (let i = index; i < directives.length; i++) {
+      const directive = directives[i];
+      directive.disconnectedCallback?.();
+    }
     directives.length = index;
   }
   return value;

@@ -23,4 +23,5 @@ export const render = (
   }
 
   part.setValue(result);
+  return part;
 };
