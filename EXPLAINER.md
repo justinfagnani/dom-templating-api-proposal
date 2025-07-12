@@ -2,10 +2,16 @@
 
 Author: [Justin Fagnani](https://github/justinfagnani)
 
-DRAFT | Last update: 2025-06-23
+DRAFT | Last update: 2025-07-12
 
 > [!WARNING]
-> This document is a work in progress.
+> This document is a work in progress. This proposal draft is not finished and
+> not ready for review.
+>
+> For some motivations behind this proposal see:
+> - [The time is right for a DOM templating API](https://justinfagnani.com/2025/06/26/the-time-is-right-for-a-dom-templating-api/)
+> - [What should a native DOM templating API look like?](https://justinfagnani.com/2025/06/30/what-should-a-dom-templating-api-look-like/)
+> - [[templates] A declarative JavaScript templating API](https://github.com/WICG/webcomponents/issues/1069)
 
 ## Introduction
 
@@ -105,7 +111,7 @@ problems for the developer:
 A developer is using `.innerHTML` to create DOM from a mixture of
 developer-controlled strings, trusted data sources, and user-controlled data.
 Their system needs to be secure against XSS attacks, so they must escape all
-user-controller data before intepolating into their trusted strings.
+user-controller data before interpolating into their trusted strings.
 
 ### Case 3: Reactivity
 
@@ -395,7 +401,7 @@ be placed at valid locations:
   creates an "element binding".
   <!-- TODO (justinfagnani): find the spec name for this location -->
 
-Aside from element bindings, hese locations are the mutable parts of the DOM.
+Aside from element bindings, these locations are the mutable parts of the DOM.
 Expressions cannot be used immutable parts like tag or attribute _names_.
 
 Multiple expressions may appear in an attribute value if the value is quoted, or
@@ -432,7 +438,7 @@ Attributes, properties, and events can present an interesting problem for some
 template systems. They are all key/value APIs, where an item has a name that we
 would like to assign a value to, thus they form three separate namespaces.
 Because they are APIs on elements, template syntaxes typically try to allow all
-three namespaces in the attribute positions on elemnts.
+three namespaces in the attribute positions on elements.
 
 ##### Survey of template binding syntaxes
 
@@ -441,13 +447,13 @@ then figure out - either via runtime introspection, built-in configuration
 lists - whether to set an attribute or property; or they might rely on event
 handler properties for event listeners.
 
-Other systems have explicit syntac to dismbiguate between the namespaces.
+Other systems have explicit syntax to disambiguate between the namespaces.
 
 |           | Attribute | Property | Event      | Boolean Attribute |
 |-----------|-----------|----------|------------|-------------------|
 | React     | `foo={}`  | `foo={}` with an `in` check | `onfoo={}` | `foo={}`<br>Has list of boolean attributes          |
-| Vue       | `v-bind:foo=""` or `:foo={}` | `:foo={}` with an `in` check<br>`:foo.prop={}`<br>`.foo={}` | `v-on:foo={}` | `foo={}`<br>truthy or falsey values determine presence|
-| Angular | `[attr.foo]=""` | `[foo]=""` | `(foo)=""` | `[attr.foo]=""`<br>truthy or falsey values determine presence |
+| Vue       | `v-bind:foo=""` or `:foo={}` | `:foo={}` with an `in` check<br>`:foo.prop={}`<br>`.foo={}` | `v-on:foo={}` | `foo={}`<br>truthy or falsy values determine presence|
+| Angular | `[attr.foo]=""` | `[foo]=""` | `(foo)=""` | `[attr.foo]=""`<br>truthy or falsy values determine presence |
 | Lit | `foo={}` | `.foo={}` | `@foo={}` | `?foo={}` |
 | Imperative DOM API | `setAttribute('foo')` | `.foo=` | `addEventListener('foo')` | `toggleAttribute('foo')` |
 
@@ -474,7 +480,7 @@ html`<button @click=${handleClick}></button>`
 
 > [!NOTE]
 > These sigils do not require HTML parser changes, since they are valid,
-> parseable attribute names. They are also extremely unlikely to conflict with
+> parsable attribute names. They are also extremely unlikely to conflict with
 > any real-world attribute names because they are _invalid_ to use with DOM APIs
 > like `setAttribute()`.
 
@@ -667,7 +673,7 @@ html`<!-- a ${x} -->`
       BooleanAttributePart.
     - Else create and attach a SingleAttributePart.
   - Else if the binding is an interpolation with static string portions of the
-    attribute value, or has multiple bindings in the attribtue value, then
+    attribute value, or has multiple bindings in the attribute value, then
     - If the attribute name starts with a `.`, create and attach a
       MultiPropertyPart.
     - If the attribute name starts with `@` or `?`, throw.
@@ -676,7 +682,7 @@ html`<!-- a ${x} -->`
   - If the next string starts with whitespace or tag end, create an attach an
     ElementPart
   - Else throw
-- Else if the position is content text, create and attach a ContentPart
+- Else if the position is comment text, create and attach a CommentPart
 - Else throw
 
 Parts are attached by giving them references to anchor nodes and pushing them
@@ -686,7 +692,8 @@ name and value are removed from the template DOM.
 The resulting DOM is parsed into the content fragment of a `<template>`.
 
 A `Template` object is then constructed with references to the `<template>`
-element and the `parts` array.
+element and the `parts` array. (_TODO_ is this even necessary? See related TODO
+below)
 
 ### Template instantiation
 
@@ -698,7 +705,49 @@ _TODO_
 
 ### Fine-grained template part updates
 
-_TODO_
+_TODO: Finish. These are just notes..._
+
+This proposal is designed to support fine-grained DOM updates based on template
+parts accepting observable values such as Observables or Signals (from the
+Signals proposal)
+
+Fine-grained reactivity is a different DOM update model than template
+re-rendering, but they are compatible. A template expression can be written
+using a combination of observable and non-observable values. When the observable
+values change, the template system reacts to the change directly and schedules
+a template instance update task. When non-observable values change, some
+external actor will have be notified of the change and re-render the template
+instance. A template that only uses observable values will never need to perform
+a full re-render.
+
+There are two possible approaches to supporting fine-grained reactivity in this
+API: built-in support, and userland adapters via directives.
+
+#### Directives and userland extensions
+
+Directives are able to support fine-grained reactivity because they are stateful
+objects, attached to a specific DOM Part at a specific point in the DOM, that
+can update the DOM Part outside of a render pass. Directives can be written to
+accept observable values like AsyncIterators, Observables, and Signals, and
+write to their DOM part upon changes. A Directive can use a scheduling API to
+batch and order changes with other directives.
+
+> _TODO_: Should _all_ directive updates have to go through a native scheduler?
+> Or should a directive be able to cause uncoordinated DOM updates?
+
+#### Native support
+
+Built-in fine-grained reactivity requires a built-in scheduler.
+
+With non-observable values an external system, like a framework or web
+component, will typically watch or somehow notice data changes, and then
+schedule a task to update the component. Multiple data updates will be handled
+together in the same task as a batch. The template renders themselves are be
+synchronous, but the overall system can be synchronous or asynchronous depending
+on the framework and scheduler that it uses.
+
+For observable values the template system has to schedule and batch the updates
+itself, via something like https://github.com/WICG/webcomponents/issues/1055
 
 ### API
 
@@ -711,9 +760,9 @@ tags used to author templates, and other utilities:
 
 ```ts
 class DOMTemplate {
-  static html: (strings, ...values) => TemplateResult;
-  static svg: (strings, ...values) => TemplateResult;
-  static mathml: (strings, ...values) => TemplateResult;
+  static html: (strings: TemplateStringsArray, ...values) => TemplateResult;
+  static svg: (strings: TemplateStringsArray, ...values) => TemplateResult;
+  static mathml: (strings: TemplateStringsArray, ...values) => TemplateResult;
   static nothing: Symbol;
   static noChange: Symbol;
 }
@@ -757,8 +806,71 @@ class TemplateResult {
 ```
 
 #### `Element.prototype.render()`
+
+```ts
+class Element {
+  render(value: any): ChildPart;
+}
+```
+
+Renders a value according to the [rendering steps above](#rendering).
+
+`value` can be any "renderable" value that is accepted by a ChildPart, including
+primitives, TemplateResults, the `nothing` and `noChange` sentinels, and arrays
+and iterable of renderable values.
+
+#### `HTMLTemplateElement.fromStrings()`
+
+```ts
+class HTMLTemplateElement {
+  state fromStrings(strings: Array<string>): HTMLTemplateElement;
+}
+```
+
+Creates a HTMLTemplateElement, including attached template parts, from an array
+of strings such as those in a DOM template expression and captured by a
+TemplateResult object.
+
+Templates are created according to the [Template
+Preparation](#Template-Preparation) steps above.
+
 #### `Template`
+
+Holds an HTMLTemplateElement and it's list of parts.
+
+> _TODO_: We might not need this class if we have
+> `HTMLTemplateElement.fromStrings()` and
+> `HTMLTemplateElement.prototype.cloneWithParts()`.
+
 #### `TemplateInstance`
+
+A stateful container that is the result of instantiating a DOM templates. Holds
+a reference to the `Template` that created it, and the live instance parts.
+
+A template instance is created by a ChildPart when the part's value is set to a
+TemplateResult. The template instance is stored on the ChildPart as its current
+value. If the ChildPart's value is then set again to a TemplateResult from the
+same template, the current TemplateInstance is kept and its `update()` method is
+called. This is what enables the in-place, DOM-stable, updates of bindings when
+re-rendering.
+
+```ts
+class TemplateInstance {
+  readonly template: Template;
+  readonly parts: Array<TemplatePart>;
+
+  constructor(template: Template, parts: Array<TemplatePart>);
+
+  update(values: ReadonlyArray<unknown>): void;
+
+  setConnected(connected: boolean): void;
+}
+```
+
+> _TODO_: Do we need to specify this class and have it publicly available, or can
+> it be an internal implementation detail of ChildPart? Would it be useful to
+> libraries building on top of the templating API somehow?
+
 #### `TemplatePart`
 #### `ChildPart`
 #### `AttributePart`
@@ -766,7 +878,7 @@ class TemplateResult {
 #### `EventPart`
 #### `ElementPart`
 #### `CommentPart`
-#### `Direcive`
+#### `Directive`
 #### `DirectiveResult`
 
 ```
@@ -776,13 +888,12 @@ class DirectiveResult {
 }
 ```
 
-
 ### Directives
 
 Directives are stateful objects that can customize the behavior of a binding by
 getting direct access to the binding's TemplatePart and therefore the underlying
 DOM. Directives are an imperative hook to the declarative template system,
-through which userland code can add new delarative abstractions.
+through which userland code can add new declarative abstractions.
 
 A template author will typically use a directive by calling a directive function
 in a binding expression.
@@ -801,9 +912,9 @@ Examples of the type of customization that a directive can do:
 - Subscriptions. A directive can subscribe to an observable resource (
   EventTarget, signal, etc.) and unsubscribe when the directive is disconnected.
 - Modifying DOM. A directive can directly modify the DOM, in order to add
-  custom DOM update behavior. For example, DOM-preserving list reording,
+  custom DOM update behavior. For example, DOM-preserving list reordering,
   general DOM morphing, keyed templates.
-- Detaching DOM. Directives can detatch and store DOM for later reuse, like a
+- Detaching DOM. Directives can detach and store DOM for later reuse, like a
   cache directive.
 
 A directive _class_ is a class that extends the `Directive` base class and
@@ -834,7 +945,7 @@ directive.
 Similar to how `TemplateResults` either update an existing template instance or
 create a new one based on the identity of the template strings, A
 `DirectiveResult` either updates an existing directive instance or creates a new
-onw based on the identy of the directive class.
+onw based on the identity of the directive class.
 
 The indirection of directive functions that return `DirectiveResult`s that refer
 to directive classes gives us two things:
@@ -873,15 +984,15 @@ around keying, caching, stable list-reordering, pinpoint DOM updates, and more.
 Existing templating APIs tend to fall into one of three main categories:
 
 1. Markup-based embedded expression DSLs like JSX or tagged template literals.
-2. Markup-based external DSLs like Mutache, Angular, Vue, and Svelte.
+2. Markup-based external DSLs like Mustache, Angular, Vue, and Svelte.
 3. HTML builder APIs, like _XXX_.
 
-For a new DOM API, we argue an embedded DSL that uses tagged tempalte literals
+For a new DOM API, we argue an embedded DSL that uses tagged template literals
 is the best choice:
 
 - Tagged template literals exist in JavaScript already. No new language features
   are required, unlike JSX.
-- Embeded DSLs utilize JavaScript for expressions and control flow, making the
+- Embedded DSLs utilize JavaScript for expressions and control flow, making the
   proposal smaller compared to external DSLs that require specifying new
   expressions and control flow syntaxes and semantics.
 - Markup-based DSLs are familiar to HTML authors and have a close association to
