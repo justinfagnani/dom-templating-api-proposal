@@ -33,12 +33,13 @@ template parts ideas in
 - Allow developers to write declarative markup-based templates in JavaScript to
   efficiently create and update entire DOM subtrees with no external
   library dependencies.
-- Work with today's standard JavaScript syntax and features.
+- Work with today's standard JavaScript syntax and features, while lighting a
+  possible path to future JSX-syntax and semantics.
 - Avoid inventing new scripting-like features like expression languages or
   control flow constructs.
-- Comparable or better performance to the best userland template libraries.
-- Support both efficient template re-rendering and fine-grained DOM updates with
-  signals, observables, etc.
+- Performance comparable to or better than the best userland template libraries.
+- Support for both efficient template re-rendering and fine-grained DOM updates
+  with signals, observables, etc.
 - Allow templates to use the four main element API surfaces that can be
   expressed declaratively: children, attributes, properties, and event
   listeners.
@@ -64,14 +65,14 @@ template parts ideas in
   libraries however.
 - New component abstractions. This proposal is just for templates. Components
   can either be handled by web components, userland component systems, or both.
-  Hooks for component systems, like stateful directives, should be available.
-- Change or fix other DOM APIs or HTML syntax. This proposal aims to add
-  templates that describe DOM trees as the DOM allows today, with today's HTML
-  parser. It does not try to change the DOM or HTML to be easier to write
-  templates for. This includes things like the fact HTML doesn't have
-  self-closing tags; that attributes, properties, and events can have
-  overlapping names; or that some boolean attributes are "on" even if they have
-  the value `"false"`.
+  Hooks that allow component systems to easily work with templates, like
+  stateful directives, should be available.
+- Fixing other DOM APIs or HTML syntax. This proposal aims to add templates that
+  describe the DOM trees that the DOM allows today, with today's HTML parser. It
+  does not try to change the DOM or HTML to be easier to write templates for.
+  This includes things like the fact HTML doesn't have self-closing tags; that
+  attributes, properties, and events can have overlapping names; or that some
+  boolean attributes are "on" even if they have the value `"false"`.
 - HTML-based templating. This proposal focuses only on a JavaScript templating
   API. While many people are interested in an HTML-based templating system,
   JavaScript is where most developers write their components and template code
@@ -113,11 +114,35 @@ developer-controlled strings, trusted data sources, and user-controlled data.
 Their system needs to be secure against XSS attacks, so they must escape all
 user-controller data before interpolating into their trusted strings.
 
+This developer would like DOM creation APIs that automatically trusts verifiably
+developer-controller strings and distrusts any potentially user-controlled
+strings.
+
 ### Case 3: Reactivity
 
-### Case 4: Server-side rendering
+An application updates or receives an update to data used to render its UI -
+this may be due to a user interaction, an API call, async operation, etc. - and
+the UI should update with the new data efficiently, while preserving the state
+of the DOM that doesn't change due to the update (focus, inputs, videos,
+iframes, custom element state, etc.).
 
-### Case 5: Userland template library
+### Case 4: Server-side rendering and hydration
+
+An application needs to render its initial UI state on the server so that it is
+sent as HTML and CSS to the browser, renderable without JavaScript. After the
+initial UI is rendered, the application must become "live" and respond to user
+input and I/O as needed. Changes to application state should only require
+updating parts of the DOM that change.
+
+The developers of the app wish to write their UI code, including templates, only
+once and have them run "isomorphically" on a JavaScript server runtime.
+
+### Case 5: Userland template library or framework
+
+A template library or framework author wishes to make their library as small and
+fast as possible. They may have a custom template syntax or entirely template
+and component definition language, either unrelated to or forked from the
+standard browser supported languages.
 
 ## Proposal: The DOM Templating API
 
@@ -130,7 +155,7 @@ Scheduling.
 > This is an omnibus proposal that covers a full-featured templating API,
 > DOM Parts, and a task scheduler.
 >
-> These should likely be three separate proposals, however the are very
+> These should most likely be three separate proposals, however the are very
 > dependent on each other, and it's important to verify that the lower-level
 > pieces are sufficiently capable for implementing the higher-level APIs on top
 > of.
@@ -142,14 +167,14 @@ Scheduling.
 ## Overview
 
 This proposed API consists of two main developer-facing features:
-- The `DOMTemplate.html`, `.svg`, and `.mathml` template literal tags which lets
-  a developer write HTML, SVG, and MathML templates in JavaScript. These
-  templates support data binding to children/text, attributes, properties, event
-  listeners, and elements.
-- The `Element.prototype.render()` method which applies a template to a location
-  in the DOM with minimal DOM mutations.
+- The `DOMTemplate` namespace object with `.html`, `.svg`, and `.mathml`
+  template literal tags which lets a developer write HTML, SVG, and MathML
+  templates in JavaScript. These templates support data binding to
+  children/text, attributes, properties, event listeners, and elements.
+- The `Element.prototype.render()` method which applies a template to an
+  element's content with minimal DOM mutations.
 
-### Example:
+### Simple example
 ```ts
 const {html} = DOMTemplate;
 
@@ -169,7 +194,8 @@ document.body.render(page('Hello Updates', 'def'));
 
 There a few important things to note even in this very basic example:
 - Templates are _expressions_. They do not return a string or DOM, but a
-  description of the template and the values called a `TemplateResult`.
+  description of the template and the values in an object called a
+  `TemplateResult`.
 - The static strings can never change, and are used to make an HTML `<template>`
   element the first time they are rendered anywhere, without using the values.
 - When a DOM template is rendered to a container for the first time, its
@@ -271,7 +297,7 @@ to DOM, as well as initial DOM tree.
 
 Template rendering happens in distinct phases:
 
-1. Template expression evaluation
+1. **Template expression evaluation**
 
    Templates are written as expressions using tagged template literals and the
    `DOMTemplate.html` template tag. Like all template literals, templates can
@@ -284,7 +310,7 @@ Template rendering happens in distinct phases:
    This expression captures the template strings and expression values into a
    `TemplateResult` instance.
 
-2. Template preparation
+2. **Template preparation**
 
    Templates are rendered to the DOM with the `Element.prototype.render()`
    method:
@@ -298,7 +324,7 @@ Template rendering happens in distinct phases:
    element. The `Template` object contains information about the `TemplatePart`s
    created from the binding locations.
 
-3. Template instantiation
+3. **Template instantiation**
 
    When a template is rendered to a specific _location_ for the first time, its
    `<template>` element and `TemplatePart`s are cloned to create a
@@ -306,17 +332,25 @@ Template rendering happens in distinct phases:
    `TemplateResult`. The `TemplateInstance` is cached for the rendering
    location, and its fragment is inserted into the DOM.
 
-4. Template instance updating
+4. **Template instance updating**
 
    When a template is rendered to a location on subsequent times, the location's
    `TemplateInstance` is retrieved and its parts are set to the new values from
    the new `TemplateResult`.
 
-5. Fine-grained template part updates
+5. **Fine-grained template part updates**
 
-   With signal integration, when a signal bound to a template part changes, the
-   part is individually updated, independently from the containing template.
-   This update is scheduled and batched with other signal-based updates.
+   With (possible) signal integration, when a signal bound to a template part
+   changes, the part is individually updated, independently from the containing
+   template. This update is scheduled and batched with other signal-based
+   updates.
+
+   > [!NOTE]
+   >
+   > Signal integration is speculative since Signals do not exist in JavaScript
+   > yet. See the [JavaScript Signals standard proposal](https://github.com/tc39/proposal-signals). The approach outlined here for integrating Signals can be
+   > added in the future, done in userland, and/or applied to other observable
+   > data types like Observables, Promises, or AsyncIterables.
 
 ### Template Expressions
 
@@ -341,18 +375,20 @@ and values, and is used by `render()` and `ChildPart`s to create and update DOM.
 
 #### Syntax
 
-The syntax for templates is plain HTML, with two additions:
+The syntax for templates is standard HTML, with two additions:
 - Template literal expressions are allowed in text, attribute value, and
   "element" positions. These expressions create template parts and bindings to
-  them.
-- The special attribute name prefixes `.`, `@`, and `?` create property, event
-  listener, and boolean attribute parts instead of plain attribute parts.
+  them. These expressions are outside of the HTML, as part of the JavaScript
+  expression defining the template.
+- The special attribute name prefixes `.`, `@`, and `?` which when used on bound
+  attributes create property, event listener, and boolean attribute parts
+  instead of plain attribute parts.
 
 ##### Well-formedness
 
-Templates _should_ be well-formed HTML fragments. Since each template's strings
-are parsed independently, each resulting template's content will be a complete
-fragment. This means that if an element is opened withing a template, it must be
+Templates _should_ be well-formed HTML fragments. Since each template is parsed
+independently, each resulting template element's content will be a complete
+fragment. This means that if an element is opened within a template, it must be
 closed within the same template, or will be closed by the existing fragment
 parsing algorithm.
 
