@@ -1,0 +1,39 @@
+{
+  "name": "tsx-transform",
+  "version": "0.0.0",
+  "description": "TypeScript transformer for DOM templating",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "wireit",
+    "test": "wireit"
+  },
+  "keywords": [],
+  "author": "",
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "wireit": "^0.14.12"
+  },
+  "wireit": {
+    "build": {
+      "command": "tsc --pretty",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "outputs": [
+        "/*.{js,d.ts,js.map,d.ts.map}",
+        "test/"
+      ]
+    },
+    "test": {
+      "command": "node --test test/**/*_test.js",
+      "dependencies": [
+        "build"
+      ],
+      "files": [],
+      "outputs": []
+    }
+  }
+}
