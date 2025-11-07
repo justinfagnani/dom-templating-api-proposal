@@ -14,11 +14,11 @@ const UPDATE_SNAPSHOTS = process.env.UPDATE_SNAPSHOTS === '1';
 describe('transform test cases', () => {
   // Find all .input.ts files in the cases directory
   const inputFiles = readdirSync(casesDir).filter((f) =>
-    f.endsWith('.input.ts')
+    f.endsWith('.input.ts') || f.endsWith('.input.tsx')
   );
 
   for (const inputFile of inputFiles) {
-    const testName = basename(inputFile, '.input.ts');
+    const testName = basename(inputFile).replace(/\.input\.tsx?$/, '');
     const inputPath = join(casesDir, inputFile);
     const expectedPath = join(casesDir, `${testName}.expected.ts`);
 
