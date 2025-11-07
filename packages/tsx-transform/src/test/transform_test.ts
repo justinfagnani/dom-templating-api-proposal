@@ -1,11 +1,9 @@
-import {describe, test} from 'node:test';
-import assert from 'node:assert';
-import {readFileSync, writeFileSync, readdirSync} from 'node:fs';
-import {join, basename} from 'node:path';
-import {fileURLToPath} from 'node:url';
-import {transformSource} from '../index.js';
+const {describe, test} = require('node:test');
+const assert = require('node:assert');
+const {readFileSync, writeFileSync, readdirSync} = require('node:fs');
+const {join, basename} = require('node:path');
+const {transformSource} = require('../index');
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const casesDir = join(__dirname, 'cases');
 
 // Set UPDATE_SNAPSHOTS=1 to regenerate expected outputs
@@ -13,7 +11,7 @@ const UPDATE_SNAPSHOTS = process.env.UPDATE_SNAPSHOTS === '1';
 
 describe('transform test cases', () => {
   // Find all .input.ts files in the cases directory
-  const inputFiles = readdirSync(casesDir).filter((f) =>
+  const inputFiles = readdirSync(casesDir).filter((f: string) =>
     f.endsWith('.input.ts') || f.endsWith('.input.tsx')
   );
 

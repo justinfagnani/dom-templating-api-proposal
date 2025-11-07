@@ -4,3 +4,4 @@
 *.d.ts.map
 .tsbuildinfo
 node_modules/
+browser-tests-out/
