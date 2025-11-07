@@ -1,3 +1,3 @@
-function justADiv() {
+function selfClosing() {
     return DOMTemplate.html `<div></div>`;
 }

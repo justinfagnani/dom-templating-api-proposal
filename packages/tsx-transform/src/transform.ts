@@ -54,22 +54,8 @@ export function createTransformer(
     };
 
     return (sourceFile: ts.SourceFile): ts.SourceFile => {
-      // First, transform JSX elements
-      const visited = ts.visitNode(sourceFile, visitor) as ts.SourceFile;
-
-      // Then add the leading comment
-      const statement = ts.factory.createEmptyStatement();
-      const commentedStatement = ts.addSyntheticLeadingComment(
-        statement,
-        ts.SyntaxKind.MultiLineCommentTrivia,
-        ' Transformed by tsx-transform ',
-        true
-      );
-
-      // Add the commented statement at the beginning
-      const statements = [commentedStatement, ...visited.statements];
-
-      return ts.factory.updateSourceFile(visited, statements);
+      // Transform JSX elements
+      return ts.visitNode(sourceFile, visitor) as ts.SourceFile;
     };
   };
 }

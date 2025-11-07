@@ -1,2 +1,0 @@
-/* Transformed by tsx-transform */
-;
