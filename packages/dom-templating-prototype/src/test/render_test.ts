@@ -312,7 +312,11 @@ suite('render()', () => {
       assertRender(html`<div a="${'A'}"></div>`, '<div a="A"></div>');
       assertRender(html`<div abc="${'A'}"></div>`, '<div abc="A"></div>');
       assertRender(html`<div abc="${'A'}"></div>`, '<div abc="A"></div>');
-      assertRender(html`<div abc="${'A'}/>"></div>`, '<div abc="A/>"></div>');
+      const div = document.createElement('div');
+      div.setAttribute('abc', 'A/>');
+      // Need to account for different browser behavior here. See
+      // https://developer.chrome.com/blog/escape-attributes
+      assertRender(html`<div abc="${'A'}/>"></div>`, div.outerHTML);
       assertRender(html`<input value="${'A'}" />`, '<input value="A">');
     });
 
@@ -342,10 +346,12 @@ suite('render()', () => {
     });
 
     test('quoted attribute with markup', () => {
-      assertRender(
-        html`<div a="<table>${'A'}"></div>`,
-        '<div a="<table>A"></div>'
-      );
+      const div = document.createElement('div');
+      div.setAttribute('a', '<table>A');
+      // Account for browsers with different behavior here.
+      // See https://developer.chrome.com/blog/escape-attributes for the
+      // recent change to the html spec.
+      assertRender(html`<div a="<table>${'A'}"></div>`, div.outerHTML);
     });
 
     test('text after quoted bound attribute', () => {
@@ -675,7 +681,7 @@ suite('render()', () => {
     test('updates when called multiple times with arrays', () => {
       // prettier-ignore
       const ul = (list: string[]) => {
-        const items = list.map((item) => html`<li>${item}</li>`);        
+        const items = list.map((item) => html`<li>${item}</li>`);
         return html`<ul>${items}</ul>`;
       };
       render(ul(['a', 'b', 'c']), container);

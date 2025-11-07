@@ -1,0 +1,88 @@
+{
+  "name": "dom-template-tsx",
+  "version": "0.0.0",
+  "description": "TypeScript transformer to convert JSX to the DOM templating API proposal",
+  "main": "index.js",
+  "scripts": {
+    "build": "wireit",
+    "test": "wireit",
+    "test:node": "wireit",
+    "test:update-snapshots": "wireit",
+    "build:browser-tests": "wireit",
+    "test:browser": "wireit"
+  },
+  "keywords": [],
+  "author": "",
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "@types/chai": "^5.2.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.10.1",
+    "@web/dev-server-rollup": "^0.6.4",
+    "@web/test-runner": "^0.20.2",
+    "@web/test-runner-playwright": "^0.11.0",
+    "chai": "^5.2.0",
+    "prettier": "^3.5.3",
+    "ts-node": "^10.9.2",
+    "ts-patch": "^3.2.1",
+    "typescript": "^5.8.3",
+    "wireit": "^0.14.12"
+  },
+  "wireit": {
+    "build": {
+      "command": "tsc --pretty",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "outputs": [
+        "/*.{js,d.ts,js.map,d.ts.map}",
+        "test/"
+      ]
+    },
+    "test": {
+      "dependencies": [
+        "test:node",
+        "test:browser"
+      ]
+    },
+    "test:node": {
+      "command": "node --test test/**/*_test.js",
+      "dependencies": [
+        "build"
+      ],
+      "files": [],
+      "outputs": []
+    },
+    "test:update-snapshots": {
+      "command": "UPDATE_SNAPSHOTS=1 node --test test/**/*_test.js",
+      "dependencies": [
+        "build"
+      ],
+      "files": [],
+      "output": []
+    },
+    "build:browser-tests": {
+      "command": "tspc -p browser-tests/tsconfig.json",
+      "dependencies": [
+        "build",
+        "../dom-templating-prototype:build"
+      ],
+      "files": [
+        "browser-tests/**/*.tsx",
+        "browser-tests/**/*.ts",
+        "browser-tests/tsconfig.json"
+      ],
+      "outputs": [
+        "browser-tests-out/**"
+      ]
+    },
+    "test:browser": {
+      "command": "wtr browser-tests-out/**/*_test.js --config browser-tests-out/web-test-runner.config.mjs",
+      "dependencies": [
+        "build:browser-tests"
+      ],
+      "files": [],
+      "outputs": []
+    }
+  }
+}

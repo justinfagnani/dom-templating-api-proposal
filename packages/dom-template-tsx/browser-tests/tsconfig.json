@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "es2024",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    // So that it writes out a .js file but leaves the TSX for our plugin
+    // to transform.
+    "jsx": "react-native",
+    // So that `import * as DOMTemplate from ...' isn't removed.
+    "verbatimModuleSyntax": true,
+    "types": ["mocha"],
+    "sourceMap": true,
+    "outDir": "../browser-tests-out",
+    "strict": true,
+    "skipLibCheck": true,
+    "plugins": [
+      {
+        "transform": "../index.js"
+      }
+    ]
+  },
+  "include": ["./**/*.tsx", "./**/*.ts", "web-test-runner.config.mts"]
+}

@@ -1,11 +1,11 @@
-import type {TestFramework, TestRunnerConfig} from '@web/test-runner';
+import type {TestRunnerConfig} from '@web/test-runner';
 import {playwrightLauncher} from '@web/test-runner-playwright';
 
 // https://modern-web.dev/docs/test-runner/cli-and-configuration/
 const config: TestRunnerConfig = {
   // rootDir: '../../',
   // files: ['./test/**/*_test.js'],
-  port: 8002,
+  port: 8003,
   nodeResolve: {
     exportConditions: ['development', 'browser'],
   },
@@ -15,7 +15,7 @@ const config: TestRunnerConfig = {
     config: {
       ui: 'tdd',
     },
-  } as TestFramework,
+  },
 };
 
 export default config;
