@@ -64,7 +64,8 @@
     "build:browser-tests": {
       "command": "tspc -p browser-tests/tsconfig.json",
       "dependencies": [
-        "build"
+        "build",
+        "../dom-templating-prototype:build"
       ],
       "files": [
         "browser-tests/**/*.tsx",
