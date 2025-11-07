@@ -15,7 +15,10 @@ interface TemplateData {
 /**
  * Converts a JSX child node to template data.
  */
-function jsxChildToTemplate(child: ts.JsxChild): TemplateData {
+function jsxChildToTemplate(
+  child: ts.JsxChild,
+  visitor: (node: ts.Node) => ts.Node
+): TemplateData {
   if (ts.isJsxText(child)) {
     // Return the text content as a single part
     return {parts: [child.text], expressions: []};
@@ -23,14 +26,16 @@ function jsxChildToTemplate(child: ts.JsxChild): TemplateData {
 
   if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
     // Recursively process nested JSX elements
-    return jsxToTemplate(child);
+    return jsxToTemplate(child, visitor);
   }
 
   if (ts.isJsxExpression(child)) {
     // Handle JSX expressions like {name}
     if (child.expression) {
+      // Visit the expression to transform any JSX inside it
+      const visitedExpression = ts.visitNode(child.expression, visitor) as ts.Expression;
       // Expression creates a gap between two parts
-      return {parts: ['', ''], expressions: [child.expression]};
+      return {parts: ['', ''], expressions: [visitedExpression]};
     }
   }
 
@@ -77,7 +82,10 @@ function mergeTemplates(templates: TemplateData[]): TemplateData {
 /**
  * Processes a JSX attribute and returns template data for it.
  */
-function processAttribute(attr: ts.JsxAttribute | ts.JsxSpreadAttribute): TemplateData {
+function processAttribute(
+  attr: ts.JsxAttribute | ts.JsxSpreadAttribute,
+  visitor: (node: ts.Node) => ts.Node
+): TemplateData {
   // For now, we'll skip spread attributes
   if (ts.isJsxSpreadAttribute(attr)) {
     return {parts: [''], expressions: []};
@@ -114,9 +122,11 @@ function processAttribute(attr: ts.JsxAttribute | ts.JsxSpreadAttribute): Templa
 
   if (ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
     // Expression like <div foo={bar} />
+    // Visit the expression to transform any JSX inside it
+    const visitedExpression = ts.visitNode(attr.initializer.expression, visitor) as ts.Expression;
     return {
       parts: [` ${prefix}${attributeName}=`, ''],
-      expressions: [attr.initializer.expression],
+      expressions: [visitedExpression],
     };
   }
 
@@ -126,18 +136,24 @@ function processAttribute(attr: ts.JsxAttribute | ts.JsxSpreadAttribute): Templa
 /**
  * Processes all attributes on a JSX opening element.
  */
-function processAttributes(attributes: ts.NodeArray<ts.JsxAttributeLike>): TemplateData {
-  const attrTemplates = Array.from(attributes).map(processAttribute);
+function processAttributes(
+  attributes: ts.NodeArray<ts.JsxAttributeLike>,
+  visitor: (node: ts.Node) => ts.Node
+): TemplateData {
+  const attrTemplates = Array.from(attributes).map((attr) => processAttribute(attr, visitor));
   return mergeTemplates(attrTemplates);
 }
 
 /**
  * Converts a JSX element to template data.
  */
-function jsxToTemplate(node: ts.JsxElement | ts.JsxSelfClosingElement): TemplateData {
+function jsxToTemplate(
+  node: ts.JsxElement | ts.JsxSelfClosingElement,
+  visitor: (node: ts.Node) => ts.Node
+): TemplateData {
   if (ts.isJsxSelfClosingElement(node)) {
     const tagName = node.tagName.getText();
-    const attrsTemplate = processAttributes(node.attributes.properties);
+    const attrsTemplate = processAttributes(node.attributes.properties, visitor);
 
     // Merge tag name with attributes: <tagName attrs></ tagName>
     const openingTag = mergeTemplates([
@@ -152,10 +168,10 @@ function jsxToTemplate(node: ts.JsxElement | ts.JsxSelfClosingElement): Template
   if (ts.isJsxElement(node)) {
     const openingTagName = node.openingElement.tagName.getText();
     const closingTagName = node.closingElement.tagName.getText();
-    const attrsTemplate = processAttributes(node.openingElement.attributes.properties);
+    const attrsTemplate = processAttributes(node.openingElement.attributes.properties, visitor);
 
     // Process all children
-    const childTemplates = node.children.map(jsxChildToTemplate);
+    const childTemplates = node.children.map((child) => jsxChildToTemplate(child, visitor));
     const childrenTemplate = mergeTemplates(childTemplates);
 
     // Build: <tagName attrs> children </tagName>
@@ -211,7 +227,7 @@ export function createTransformer(
     const visitor = (node: ts.Node): ts.Node => {
       // Transform JSX elements to DOMTemplate.html`` tagged template literals
       if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
-        const templateData = jsxToTemplate(node);
+        const templateData = jsxToTemplate(node, visitor);
         const templateLiteral = createTemplateLiteral(templateData);
 
         // Create DOMTemplate.html`...`
