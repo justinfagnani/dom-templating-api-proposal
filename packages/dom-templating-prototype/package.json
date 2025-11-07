@@ -31,7 +31,7 @@
       ]
     },
     "test": {
-      "command": "wtr test/**/*_test.js",
+      "command": "wtr test/**/*_test.js --config src/web-test-runner.config.ts",
       "dependencies": [
         "build"
       ],

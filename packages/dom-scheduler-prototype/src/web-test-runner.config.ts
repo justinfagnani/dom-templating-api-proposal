@@ -5,7 +5,7 @@ import {playwrightLauncher} from '@web/test-runner-playwright';
 const config: TestRunnerConfig = {
   // rootDir: '../../',
   // files: ['./test/**/*_test.js'],
-  port: 8001,
+  port: 8002,
   nodeResolve: {
     exportConditions: ['development', 'browser'],
   },
