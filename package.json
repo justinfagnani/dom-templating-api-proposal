@@ -14,12 +14,14 @@
   "wireit": {
     "build": {
       "dependencies": [
-        "./packages/dom-templating-prototype:build"
+        "./packages/dom-templating-prototype:build",
+        "./packages/dom-scheduler-prototype:build"
       ]
     },
     "test": {
       "dependencies": [
-        "./packages/dom-templating-prototype:test"
+        "./packages/dom-templating-prototype:test",
+        "./packages/dom-scheduler-prototype:test"
       ]
     }
   }

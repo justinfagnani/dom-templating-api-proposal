@@ -1,0 +1,52 @@
+{
+  "name": "dom-scheduler-prototype",
+  "version": "0.0.1",
+  "description": "A tree-aware task scheduler for the DOM",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "wireit",
+    "test": "wireit"
+  },
+  "keywords": [
+    "dom",
+    "scheduler",
+    "task",
+    "tree",
+    "web"
+  ],
+  "author": "Justin Fagnani <justin@fagnani.com>",
+  "devDependencies": {
+    "@types/chai": "^5.2.2",
+    "@types/mocha": "^10.0.10",
+    "@web/test-runner": "^0.20.2",
+    "@web/test-runner-playwright": "^0.11.0",
+    "chai": "^5.2.0",
+    "lit": "^3.3.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "wireit": "^0.14.12"
+  },
+  "files": [
+    "index.{d.ts,d.ts.map,js,js.map}"
+  ],
+  "wireit": {
+    "build": {
+      "command": "tsc --pretty",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "outputs": [
+        "/*.{js,d.ts,js.map,d.ts.map}"
+      ]
+    },
+    "test": {
+      "command": "wtr test/**/*_test.js",
+      "dependencies": [
+        "build"
+      ],
+      "files": [],
+      "outputs": []
+    }
+  }
+}

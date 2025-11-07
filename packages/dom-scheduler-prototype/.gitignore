@@ -1,0 +1,6 @@
+/test/
+/lib/
+.tsbuildinfo
+
+/index.*
+/web-test-runner.*

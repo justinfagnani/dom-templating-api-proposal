@@ -2,15 +2,16 @@
 
 The repo contains a proposal for a DOM templating API.
 
-See the [explainer document](./EXPLAINER.md) for more details.
+See the [explainer document](./EXPLAINER.md) and the
+[DOM Scheduler API](./DOM-SCHEDULER.md) documents for more details.
 
 ## Packages
 
 - `dom-templating-prototype`: A prototype of the templating API implemented in JavaScript
+- `dom-scheduler-prototype`: A prototype of the DOM scheduler API implemented in JavaScript
 
 ### Planned Packages
 
-- `dom-scheduler-prototype`: A prototype implementation of https://github.com/WICG/webcomponents/issues/1055
 - Examples
 - A TypeScript transformer to compile JSX to DOM templates
 - A simple Preact-like demonstration framework that uses the JSX transform and
