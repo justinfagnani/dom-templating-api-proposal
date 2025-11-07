@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "build": "wireit",
-    "test": "wireit"
+    "test": "wireit",
+    "test:update-snapshots": "wireit"
   },
   "keywords": [],
   "author": "",
@@ -34,6 +35,14 @@
       ],
       "files": [],
       "outputs": []
+    },
+    "test:update-snapshots": {
+      "command": "UPDATE_SNAPSHOTS=1 node --test test/**/*_test.js",
+      "dependencies": [
+        "build"
+      ],
+      "files": [],
+      "output": []
     }
   }
 }

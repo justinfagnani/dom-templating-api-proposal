@@ -1,38 +1,42 @@
 import {describe, test} from 'node:test';
 import assert from 'node:assert';
+import {readFileSync, writeFileSync, readdirSync} from 'node:fs';
+import {join, basename} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {transformSource} from '../index.js';
 
-describe('transformSource()', () => {
-  test('adds a comment to empty source', () => {
-    const input = '';
-    const output = transformSource(input);
-    assert.ok(output.includes('/* Transformed by tsx-transform */'));
-  });
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const casesDir = join(__dirname, 'cases');
 
-  test('adds a comment to source with code', () => {
-    const input = 'const x = 42;';
-    const output = transformSource(input);
-    assert.ok(output.includes('/* Transformed by tsx-transform */'));
-    assert.ok(output.includes('const x = 42'));
-  });
+// Set UPDATE_SNAPSHOTS=1 to regenerate expected outputs
+const UPDATE_SNAPSHOTS = process.env.UPDATE_SNAPSHOTS === '1';
 
-  test('preserves original code', () => {
-    const input = `function hello(name: string): string {
-  return 'Hello, ' + name;
-}`;
-    const output = transformSource(input);
-    assert.ok(output.includes('function hello'));
-    assert.ok(output.includes("return 'Hello, ' + name"));
-  });
+describe('transform test cases', () => {
+  // Find all .input.ts files in the cases directory
+  const inputFiles = readdirSync(casesDir).filter((f) =>
+    f.endsWith('.input.ts')
+  );
 
-  test('adds comment before existing code', () => {
-    const input = 'const x = 1;';
-    const output = transformSource(input);
-    const commentIndex = output.indexOf('/* Transformed by tsx-transform */');
-    const codeIndex = output.indexOf('const x');
-    assert.ok(
-      commentIndex < codeIndex,
-      'Comment should appear before code'
-    );
-  });
+  for (const inputFile of inputFiles) {
+    const testName = basename(inputFile, '.input.ts');
+    const inputPath = join(casesDir, inputFile);
+    const expectedPath = join(casesDir, `${testName}.expected.ts`);
+
+    test(testName, () => {
+      const input = readFileSync(inputPath, 'utf-8');
+      const actual = transformSource(input);
+
+      if (UPDATE_SNAPSHOTS) {
+        writeFileSync(expectedPath, actual, 'utf-8');
+        console.log(`Updated expected output for ${testName}`);
+      } else {
+        const expected = readFileSync(expectedPath, 'utf-8');
+        assert.strictEqual(
+          actual,
+          expected,
+          `Transform output doesn't match expected for ${testName}`
+        );
+      }
+    });
+  }
 });
