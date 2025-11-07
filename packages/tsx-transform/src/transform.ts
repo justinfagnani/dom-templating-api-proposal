@@ -5,31 +5,82 @@
 import * as ts from 'typescript';
 
 /**
- * Converts a JSX child node to an HTML string.
+ * Represents a template with string parts and expression substitutions.
  */
-function jsxChildToHtml(child: ts.JsxChild): string {
+interface TemplateData {
+  parts: string[];
+  expressions: ts.Expression[];
+}
+
+/**
+ * Converts a JSX child node to template data.
+ */
+function jsxChildToTemplate(child: ts.JsxChild): TemplateData {
   if (ts.isJsxText(child)) {
-    // Return the text content, preserving it as-is
-    return child.text;
+    // Return the text content as a single part
+    return {parts: [child.text], expressions: []};
   }
 
   if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
     // Recursively process nested JSX elements
-    return jsxToHtml(child);
+    return jsxToTemplate(child);
   }
 
-  // For now, ignore other node types like JsxExpression
-  // We'll handle those later when we add support for interpolation
-  return '';
+  if (ts.isJsxExpression(child)) {
+    // Handle JSX expressions like {name}
+    if (child.expression) {
+      // Expression creates a gap between two parts
+      return {parts: ['', ''], expressions: [child.expression]};
+    }
+  }
+
+  // Empty template for unknown child types
+  return {parts: [''], expressions: []};
 }
 
 /**
- * Converts a JSX element to an HTML string for use in a template literal.
+ * Merges multiple template data objects into one.
  */
-function jsxToHtml(node: ts.JsxElement | ts.JsxSelfClosingElement): string {
+function mergeTemplates(templates: TemplateData[]): TemplateData {
+  if (templates.length === 0) {
+    return {parts: [''], expressions: []};
+  }
+
+  if (templates.length === 1) {
+    return templates[0];
+  }
+
+  const result: TemplateData = {parts: [], expressions: []};
+
+  for (let i = 0; i < templates.length; i++) {
+    const template = templates[i];
+
+    if (i === 0) {
+      // First template: add all parts and expressions
+      result.parts.push(...template.parts);
+      result.expressions.push(...template.expressions);
+    } else {
+      // Subsequent templates: merge the first part with the last part
+      const lastPart = result.parts.pop() || '';
+      const firstPart = template.parts[0] || '';
+      result.parts.push(lastPart + firstPart);
+
+      // Add remaining parts and all expressions
+      result.parts.push(...template.parts.slice(1));
+      result.expressions.push(...template.expressions);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Converts a JSX element to template data.
+ */
+function jsxToTemplate(node: ts.JsxElement | ts.JsxSelfClosingElement): TemplateData {
   if (ts.isJsxSelfClosingElement(node)) {
     const tagName = node.tagName.getText();
-    return `<${tagName}></${tagName}>`;
+    return {parts: [`<${tagName}></${tagName}>`], expressions: []};
   }
 
   if (ts.isJsxElement(node)) {
@@ -37,15 +88,49 @@ function jsxToHtml(node: ts.JsxElement | ts.JsxSelfClosingElement): string {
     const closingTagName = node.closingElement.tagName.getText();
 
     // Process all children
-    let childrenHtml = '';
-    for (const child of node.children) {
-      childrenHtml += jsxChildToHtml(child);
-    }
+    const childTemplates = node.children.map(jsxChildToTemplate);
+    const childrenTemplate = mergeTemplates(childTemplates);
 
-    return `<${openingTagName}>${childrenHtml}</${closingTagName}>`;
+    // Wrap children in opening and closing tags
+    const parts = [...childrenTemplate.parts];
+    parts[0] = `<${openingTagName}>` + parts[0];
+    parts[parts.length - 1] = parts[parts.length - 1] + `</${closingTagName}>`;
+
+    return {
+      parts,
+      expressions: childrenTemplate.expressions,
+    };
   }
 
-  return '';
+  return {parts: [''], expressions: []};
+}
+
+/**
+ * Creates a template literal from template data.
+ */
+function createTemplateLiteral(data: TemplateData): ts.TemplateLiteral {
+  // If no expressions, create a simple template literal
+  if (data.expressions.length === 0) {
+    return ts.factory.createNoSubstitutionTemplateLiteral(data.parts[0] || '');
+  }
+
+  // Create a template expression with substitutions
+  const head = ts.factory.createTemplateHead(data.parts[0] || '');
+  const spans: ts.TemplateSpan[] = [];
+
+  for (let i = 0; i < data.expressions.length; i++) {
+    const expression = data.expressions[i];
+    const isLast = i === data.expressions.length - 1;
+    const text = data.parts[i + 1] || '';
+
+    if (isLast) {
+      spans.push(ts.factory.createTemplateSpan(expression, ts.factory.createTemplateTail(text)));
+    } else {
+      spans.push(ts.factory.createTemplateSpan(expression, ts.factory.createTemplateMiddle(text)));
+    }
+  }
+
+  return ts.factory.createTemplateExpression(head, spans);
 }
 
 /**
@@ -58,16 +143,17 @@ export function createTransformer(
     const visitor = (node: ts.Node): ts.Node => {
       // Transform JSX elements to DOMTemplate.html`` tagged template literals
       if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
-        const htmlString = jsxToHtml(node);
+        const templateData = jsxToTemplate(node);
+        const templateLiteral = createTemplateLiteral(templateData);
 
-        // Create DOMTemplate.html`<div></div>`
+        // Create DOMTemplate.html`...`
         const taggedTemplate = ts.factory.createTaggedTemplateExpression(
           ts.factory.createPropertyAccessExpression(
             ts.factory.createIdentifier('DOMTemplate'),
             ts.factory.createIdentifier('html')
           ),
           undefined, // no type arguments
-          ts.factory.createNoSubstitutionTemplateLiteral(htmlString)
+          templateLiteral
         );
 
         return taggedTemplate;
