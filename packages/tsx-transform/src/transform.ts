@@ -75,31 +75,99 @@ function mergeTemplates(templates: TemplateData[]): TemplateData {
 }
 
 /**
+ * Processes a JSX attribute and returns template data for it.
+ */
+function processAttribute(attr: ts.JsxAttribute | ts.JsxSpreadAttribute): TemplateData {
+  // For now, we'll skip spread attributes
+  if (ts.isJsxSpreadAttribute(attr)) {
+    return {parts: [''], expressions: []};
+  }
+
+  const name = attr.name.getText();
+  let attributeName = name;
+  let prefix = '';
+
+  // Check for special prefixes
+  if (name.startsWith('attr:')) {
+    // attr:foo={bar} -> foo=${bar}
+    attributeName = name.substring(5);
+  } else if (name.startsWith('on:')) {
+    // on:click={handler} -> @click=${handler}
+    attributeName = name.substring(3);
+    prefix = '@';
+  } else {
+    // foo={bar} -> .foo=${bar}
+    prefix = '.';
+  }
+
+  // Handle the attribute value
+  if (!attr.initializer) {
+    // Boolean attribute like <div foo />
+    return {parts: [` ${prefix}${attributeName}`], expressions: []};
+  }
+
+  if (ts.isStringLiteral(attr.initializer)) {
+    // String literal like <div foo="bar" />
+    const value = attr.initializer.text;
+    return {parts: [` ${prefix}${attributeName}="${value}"`], expressions: []};
+  }
+
+  if (ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
+    // Expression like <div foo={bar} />
+    return {
+      parts: [` ${prefix}${attributeName}=`, ''],
+      expressions: [attr.initializer.expression],
+    };
+  }
+
+  return {parts: [''], expressions: []};
+}
+
+/**
+ * Processes all attributes on a JSX opening element.
+ */
+function processAttributes(attributes: ts.NodeArray<ts.JsxAttributeLike>): TemplateData {
+  const attrTemplates = Array.from(attributes).map(processAttribute);
+  return mergeTemplates(attrTemplates);
+}
+
+/**
  * Converts a JSX element to template data.
  */
 function jsxToTemplate(node: ts.JsxElement | ts.JsxSelfClosingElement): TemplateData {
   if (ts.isJsxSelfClosingElement(node)) {
     const tagName = node.tagName.getText();
-    return {parts: [`<${tagName}></${tagName}>`], expressions: []};
+    const attrsTemplate = processAttributes(node.attributes.properties);
+
+    // Merge tag name with attributes: <tagName attrs></ tagName>
+    const openingTag = mergeTemplates([
+      {parts: [`<${tagName}`], expressions: []},
+      attrsTemplate,
+      {parts: [`></${tagName}>`], expressions: []},
+    ]);
+
+    return openingTag;
   }
 
   if (ts.isJsxElement(node)) {
     const openingTagName = node.openingElement.tagName.getText();
     const closingTagName = node.closingElement.tagName.getText();
+    const attrsTemplate = processAttributes(node.openingElement.attributes.properties);
 
     // Process all children
     const childTemplates = node.children.map(jsxChildToTemplate);
     const childrenTemplate = mergeTemplates(childTemplates);
 
-    // Wrap children in opening and closing tags
-    const parts = [...childrenTemplate.parts];
-    parts[0] = `<${openingTagName}>` + parts[0];
-    parts[parts.length - 1] = parts[parts.length - 1] + `</${closingTagName}>`;
+    // Build: <tagName attrs> children </tagName>
+    const result = mergeTemplates([
+      {parts: [`<${openingTagName}`], expressions: []},
+      attrsTemplate,
+      {parts: [`>`], expressions: []},
+      childrenTemplate,
+      {parts: [`</${closingTagName}>`], expressions: []},
+    ]);
 
-    return {
-      parts,
-      expressions: childrenTemplate.expressions,
-    };
+    return result;
   }
 
   return {parts: [''], expressions: []};
