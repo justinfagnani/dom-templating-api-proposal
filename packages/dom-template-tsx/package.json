@@ -1,7 +1,7 @@
 {
-  "name": "tsx-transform",
+  "name": "dom-template-tsx",
   "version": "0.0.0",
-  "description": "TypeScript transformer for DOM templating",
+  "description": "TypeScript transformer to convert JSX to the DOM templating API proposal",
   "main": "index.js",
   "scripts": {
     "build": "wireit",

@@ -9,11 +9,11 @@ See the [explainer document](./EXPLAINER.md) and the
 
 - `dom-templating-prototype`: A prototype of the templating API implemented in JavaScript
 - `dom-scheduler-prototype`: A prototype of the DOM scheduler API implemented in JavaScript
+- `dom-template-tsx`: TypeScript transformer to convert JSX to the DOM templating API proposal
 
 ### Planned Packages
 
 - Examples
-- A TypeScript transformer to compile JSX to DOM templates
 - A simple Preact-like demonstration framework that uses the JSX transform and
   attaches components to templates with stateful directives.
 - Utilities:
