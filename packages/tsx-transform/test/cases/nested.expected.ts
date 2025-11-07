@@ -1,3 +1,3 @@
 function nested() {
-    return DOMTemplate.html `<div></div>`;
+    return DOMTemplate.html `<div><span></span></div>`;
 }

@@ -5,6 +5,25 @@
 import * as ts from 'typescript';
 
 /**
+ * Converts a JSX child node to an HTML string.
+ */
+function jsxChildToHtml(child: ts.JsxChild): string {
+  if (ts.isJsxText(child)) {
+    // Return the text content, preserving it as-is
+    return child.text;
+  }
+
+  if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
+    // Recursively process nested JSX elements
+    return jsxToHtml(child);
+  }
+
+  // For now, ignore other node types like JsxExpression
+  // We'll handle those later when we add support for interpolation
+  return '';
+}
+
+/**
  * Converts a JSX element to an HTML string for use in a template literal.
  */
 function jsxToHtml(node: ts.JsxElement | ts.JsxSelfClosingElement): string {
@@ -17,8 +36,13 @@ function jsxToHtml(node: ts.JsxElement | ts.JsxSelfClosingElement): string {
     const openingTagName = node.openingElement.tagName.getText();
     const closingTagName = node.closingElement.tagName.getText();
 
-    // For now, handle simple cases with no children or attributes
-    return `<${openingTagName}></${closingTagName}>`;
+    // Process all children
+    let childrenHtml = '';
+    for (const child of node.children) {
+      childrenHtml += jsxChildToHtml(child);
+    }
+
+    return `<${openingTagName}>${childrenHtml}</${closingTagName}>`;
   }
 
   return '';
