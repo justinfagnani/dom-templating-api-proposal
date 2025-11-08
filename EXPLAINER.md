@@ -449,11 +449,46 @@ attribute name.
 #### Binding types
 
 ##### Child/text bindings
+
+Bindings in child/text positions are handled by `ChildPart`. They can render
+any "renderable" value, including:
+- Primitives like strings, numbers, and booleans.
+- `TemplateResult` objects, for composition.
+- `Node` objects.
+- Iterables of other renderable values, for lists.
+- The `nothing` sentinel to render nothing.
+
 ##### Attribute bindings
+
+Attribute bindings are handled by `AttributePart`. They set attributes on
+elements. If the binding is the entire attribute value, it's a
+`SingleAttributePart`; if it's part of an interpolation, it's a
+`MultiAttributePart`.
+
 ##### Property bindings
+
+Property bindings are created by prefixing an attribute name with a `.` (dot),
+like `.value=${x}`. They are handled by `PropertyPart` and set a property on the
+element instead of an attribute. This is useful for properties that don't have a
+corresponding attribute, or have different behavior, like the `value` property
+of an `<input>`.
+
 ##### Event listener bindings
+
+Event listener bindings are created by prefixing an attribute name with an `@`,
+like `@click=${handleClick}`. They are handled by `EventPart` and add an event
+listener to the element.
+
 ##### Element bindings
+
+Element bindings are created by placing an expression in an element's opening
+tag, like `<div ${myDirective}>`. They are handled by `ElementPart` and are
+only useful for applying directives to an element.
+
 ##### Comment bindings
+
+Comment bindings are created by placing an expression inside an HTML comment,
+like `<!-- ${x} -->`. They are handled by `CommentPart`.
 
 #### Property and event binding Syntax
 
@@ -733,31 +768,110 @@ below)
 
 ### Template instantiation
 
-_TODO_
+When a `TemplateResult` is rendered into a `ChildPart`, the `ChildPart` looks
+at its current value to see if it can update it in place. If the current value
+is not a `TemplateInstance` from the same template as the `TemplateResult`, a
+new `TemplateInstance` must be created.
+
+To create a `TemplateInstance`, the `Template` object for the `TemplateResult`
+is retrieved from a cache, or created if it's the first time that template has
+been seen anywhere.
+
+The `Template.prototype.clone()` method is called, which:
+1. Clones the content of the `Template`'s `<template>` element into a new
+   `DocumentFragment`.
+2. Walks the DOM of the fragment to find the part markers left during template
+   preparation.
+3. Creates clones of the `TemplatePart`s from the `Template` object, associated
+   with the live nodes in the fragment.
+4. Returns a `TemplateInstance` with the cloned parts, and the fragment.
+
+The `ChildPart` then calls `TemplateInstance.prototype.update()` with the values
+from the `TemplateResult`, which sets the initial values on the parts. Finally,
+the `ChildPart` inserts the `DocumentFragment` into the DOM and saves the
+`TemplateInstance` as its current value.
 
 ### Template instance updating
 
-_TODO_
+When a `TemplateResult` is rendered into a `ChildPart` that already holds a
+`TemplateInstance` from the same template, the `ChildPart` calls
+`TemplateInstance.prototype.update()` on the existing instance with the new
+values from the `TemplateResult`.
+
+`TemplateInstance.prototype.update()` iterates over its `TemplatePart`s and the
+new values, and calls `setValue()` on each part.
+
+Each part then handles updating its section of the DOM, and the static DOM cloned from the template is not visited or changed. This is how the proposal acheives efficient, DOM-stable updates.
 
 ### Fine-grained template part updates
 
-_TODO: Finish. These are just notes..._
-
 This proposal is designed to support fine-grained DOM updates based on template
 parts accepting observable values such as Observables or Signals (from the
-Signals proposal).
+[Signals proposal](https://github.com/tc39/proposal-signals)).
 
-Fine-grained reactivity is a different DOM update model than template
-re-rendering, but they are compatible. A template expression can be written
-using a combination of observable and non-observable values. When the observable
-values change, the template system reacts to the change directly and schedules
-a template instance update task. When non-observable values change, some
-external actor will have to be notified of the change and re-render the template
-instance. A template that only uses observable values will never need to perform
-a full re-render.
+Fine-grained reactivity is a different DOM update model than the coarse-grained
+re-rendering model described above, but they are compatible and can be mixed.
 
-There are two possible approaches to supporting fine-grained reactivity in this
-API: built-in support, and userland adapters via directives.
+With fine-grained reactivity, `render()` is only needed for the initial render.
+Subsequent updates are triggered directly by changes to the observable values
+bound in the template. A template that uses only observable values for its
+dynamic parts would never need to be re-rendered after the initial render.
+
+It's also possible to mix and match update models. A template can be composed of
+both observable and plain, non-observable values. When a non-observable value
+changes, an external actor (like a component's setter, an event handler, or a
+state management system) must call `render()` again to update the template. The
+fine-grained parts will continue to update on their own.
+
+#### How it works
+
+When a template part receives an observable value (like a Signal or an
+Observable), it subscribes to it:
+- For a Signal, the part would create an effect that updates the part when the
+  signal's value changes.
+- For an Observable, the part would call its `subscribe()` method.
+
+When the observable emits a new value, the part's subscription callback is
+invoked. This callback does not update the DOM immediately. Instead, it
+schedules an update task using the proposed tree-aware DOM Scheduler API (see
+`DOM-SCHEDULER.md`).
+
+```ts
+// Pseudo-code for a part's reaction to a signal change
+const effect = new Signal.Effect(() => {
+  // Schedule a DOM update, but don't run it immediately
+  scheduler.postDOMTask(this.part.node, () => {
+    this.part.setValue(value.get());
+  });
+});
+```
+
+By using a tree-aware scheduler, updates from multiple independent reactive
+values across the component tree are automatically batched and executed in
+document order. This prevents tearing and unnecessary re-renders of child
+components.
+
+#### Directives and userland extensions
+
+Directives provide a natural extension point for userland implementations of
+fine-grained reactivity. A directive can be written to accept an observable,
+handle the subscription, and schedule updates.
+
+```ts
+// Example of a userland `signal()` directive
+html`<p>${signal(mySignal)}</p>`
+```
+
+This approach allows libraries to experiment with and support various reactive
+primitives without requiring built-in support for each one.
+
+#### Native support
+
+For popular primitives like Signals, native support could be built directly into
+template parts. This would be more ergonomic and performant than a
+directive-based approach. When a part receives a signal, it would automatically
+create an effect to track it and schedule updates. This behavior would be
+transparent to the developer.
 
 #### Directives and userland extensions
 
@@ -787,7 +901,7 @@ itself, via something like https://github.com/WICG/webcomponents/issues/1055.
 
 ### API
 
-_TODO_
+This section describes the main interfaces and classes of the DOM Templating API.
 
 #### `DOMTemplate`
 
@@ -872,11 +986,26 @@ Preparation](#Template-Preparation) steps above.
 
 #### `Template`
 
-Holds an HTMLTemplateElement and its list of parts.
+A `Template` object holds a prepared `<template>` element and the list of
+`TemplatePart`s that apply to it. `Template` objects are cached globally per
+template string array.
 
-> _TODO_: We might not need this class if we have
-> `HTMLTemplateElement.fromStrings()` and
-> `HTMLTemplateElement.prototype.cloneWithParts()`.
+```ts
+class Template {
+  readonly element: HTMLTemplateElement;
+  readonly parts: Array<{part: TemplatePart; index: number}>;
+
+  constructor(templateResult: TemplateResult);
+  clone(): {instance: TemplateInstance, fragment: DocumentFragment};
+}
+```
+
+> This class might not be part of the public API. A different approach would be
+> to extend `HTMLTemplateElement` with methods like `fromStrings()` and
+> `cloneWithParts()`, making the template preparation and instantiation
+> mechanism more integrated with existing DOM features and reducing the new API
+> surface. For this proposal, `Template` can be considered an internal detail
+> that powers the rendering process.
 
 #### `TemplateInstance`
 
@@ -903,21 +1032,192 @@ class TemplateInstance {
 }
 ```
 
-> _TODO_: Do we need to specify this class and have it publicly available, or can
-> it be an internal implementation detail of ChildPart? Would it be useful to
-> libraries building on top of the templating API somehow?
+> Like `Template`, this class could be an internal implementation detail of
+> `ChildPart` rather than a public-facing part of the API. Its main role is to
+> manage the live parts of a specific DOM instance created from a template.
+> Exposing it might offer advanced control to libraries building on top of this
+> API, but for most use cases, it can remain internal.
 
 #### `TemplatePart`
+
+`TemplatePart` is the base class for all part types. It has an abstract
+`setValue()` method for committing a value to the part, a `setConnected()`
+method for handling DOM connection and disconnection, and a `clone()` method
+for creating a new part instance from a template.
+
+All `TemplatePart`s remember their current rendered value so that during updates
+they can compare the new value against the old value. In general, when the new
+value is the same as the old value, no DOM changes are made. When the values are
+not the same, the DOM controlled by the part is updated to reflect the new value.
+
+```ts
+abstract class TemplatePart {
+  abstract setValue(value: unknown): void;
+  setConnected(connected: boolean): void;
+  abstract clone(node: Node): TemplatePart;
+}
+```
+
 #### `ChildPart`
+
+A `TemplatePart` that is located in a child position of an element, and can render any
+"renderable" value, including primitives, `TemplateResult`s, `Node`s, and
+iterables of renderable values.
+
+A `ChildPart` is anchored by a start and end `Node` (usually `Comment` nodes)
+and manages all the content between them. When `setValue()` is called, it clears
+its current content and renders the new value. It handles different value types
+as follows:
+- **Primitives**: Coerced to strings and inserted as a single `Text` node.
+- **`TemplateResult`**: Creates or updates a `TemplateInstance`, enabling nested
+  templates and efficient updates.
+- **`Node`**: The node is inserted directly.
+- **Iterables**: Each item is rendered into a nested `ChildPart`, allowing for
+  dynamic lists.
+- **`nothing` or `null`**: Clears the content of the part.
+
+```ts
+class ChildPart extends TemplatePart {
+  readonly startNode: ChildNode;
+  readonly endNode: ChildNode | null;
+  readonly parentNode: Node;
+
+  constructor(startNode: ChildNode, endNode: ChildNode | null);
+  setValue(value: unknown): void;
+}
+```
+
 #### `AttributePart`
+
+A `TemplatePart` for binding to attributes. There are two variants:
+
+- `SingleAttributePart`: For when a binding is the entire attribute value (e.g.,
+  `class=${x}`). It sets the attribute to the provided string value. If the value
+  is `nothing`, the attribute is removed.
+- `MultiAttributePart`: For when a binding is interpolated with other bindings
+  or static strings (e.g., `class="foo ${x} bar ${y}"`). It joins its internal
+  array of values with the static strings and sets the complete attribute value.
+  If any of the values are `nothing`, the attribute is removed (this is useful,
+  for example, for URLs where the value is invalid if any part is undefined).
+
+```ts
+class SingleAttributePart extends TemplatePart {
+  readonly element: Element;
+  readonly name: string;
+  setValue(value: unknown): void;
+}
+
+class MultiAttributePart extends TemplatePart {
+  readonly element: Element;
+  readonly name: string;
+  readonly strings: ReadonlyArray<string>;
+  setValue(values: ReadonlyArray<unknown>): void;
+}
+```
+
 #### `PropertyPart`
+
+A `TemplatePart` for bindings that set a property on an element, created by the
+`.` prefix (e.g., `.value=${x}`). It directly assigns the value to the element's
+property. Like `AttributePart`, it has `SinglePropertyPart` and `MultiPropertyPart`
+variants for whole-value and interpolated bindings, respectively.
+
+```ts
+class SinglePropertyPart extends TemplatePart {
+  readonly element: Element;
+  readonly name: string;
+  setValue(value: unknown): void;
+}
+
+class MultiPropertyPart extends TemplatePart {
+  readonly element: Element;
+  readonly name: string;
+  readonly strings: ReadonlyArray<string>;
+  setValue(values: ReadonlyArray<unknown>): void;
+}
+```
+
+#### `BooleanAttributePart`
+
+A `TemplatePart` for bindings that toggle an attribute based on a boolean value,
+created by the `?` prefix (e.g., `?disabled=${isdisabled}`). If the value is
+truthy, the attribute is set to an empty string. If the value is falsy, the
+attribute is removed.
+
+```ts
+class BooleanAttributePart extends TemplatePart {
+  readonly element: Element;
+  readonly name: string;
+  setValue(value: unknown): void;
+}
+```
+
 #### `EventPart`
+
+A `TemplatePart` for adding and removing event listeners, created by the `@`
+prefix (e.g., `@click=${handleClick}`). It stores the current listener function.
+When updated, it removes the previous listener and adds the new one. It can also
+accept an `EventListenerObject`.
+
+```ts
+class EventPart extends SingleAttributePart {
+  handleEvent(event: Event): void;
+}
+```
+
 #### `ElementPart`
+
+A `TemplatePart` that is located on an element tag, and is used for directives
+that need access to the element itself, but do not set a specific attribute,
+property, or event. This allows a directive to have full control over the element.
+
+```ts
+class ElementPart extends TemplatePart {
+  readonly element: Element;
+  setValue(value: unknown): void;
+}
+```
+
 #### `CommentPart`
+
+A `TemplatePart` for bindings inside HTML comments (e.g., `<!-- ${x} -->`). It
+sets the `data` property of the `Comment` node to the stringified value.
+
+Comment parts are mainly useful because developers expect to be able to comment
+out parts of their templates, but because HTML coments will not comment out any
+JavaScript template literal expressions the expressions are still live and need
+to be handled or they will break the template.
+
+```ts
+class CommentPart extends TemplatePart {
+  readonly node: Comment;
+  setValue(value: unknown): void;
+}
+```
+
 #### `Directive`
+
+The base class for all directives. Directives must implement an `update()`
+method, and may optionally implement `connectedCallback()` and
+`disconnectedCallback()`.
+
+```ts
+abstract class Directive {
+  readonly part: TemplatePart;
+  constructor(part: TemplatePart);
+  abstract update(...props: Array<unknown>): unknown;
+  connectedCallback?(): void;
+  disconnectedCallback?(): void;
+  setValue(value: unknown): void;
+}
+```
+
 #### `DirectiveResult`
 
-```
+A container for a directive class and the arguments to its `update()` method.
+Directive functions return `DirectiveResult` objects.
+
+```ts
 class DirectiveResult {
   readonly directiveClass: C;
   readonly values: DirectiveParameters<InstanceType<C>>;
@@ -953,13 +1253,20 @@ Examples of the type of customization that a directive can do:
 - Detaching DOM. Directives can detach and store DOM for later reuse, like a
   cache directive.
 
-A directive _class_ is a class that extends the `Directive` base class and
-implements an `update()` method with custom parameters:
+#### Defining Directives
+
+A directive is defined by a class that extends the `Directive` base class. The
+core of a directive is its `update()` method, which receives the arguments from
+the directive function call in the template.
 
 ```ts
 class MyDirective extends Directive {
+  // The update method defines the public API of the directive. The parameters
+  // to update() will be the parameters to the directive function created by
+  // `makeDirective()`.
   update(foo: string) {
-    // ...
+    // The return value is what the underlying part will be set to.
+    return `MyDirective says: ${foo}`;
   }
 }
 ```
@@ -973,33 +1280,82 @@ const myDirective = makeDirective(MyDirective);
 ```
 
 `makeDirective()` returns a function with the same signature as the directive
-class's `update()` method, but that _doesn't_ instantiate the class or invoke
-its `update()` method. Instead, it returns a `DirectiveResult` object that
-captures references to the directive class constructor and the arguments to the
-directive.
+class's `update()` method. This function doesn't instantiate the class or invoke
+its `update()` method directly. Instead, it returns a `DirectiveResult` object that
+captures references to the directive class constructor and the arguments passed
+to the directive function.
 
-Similar to how `TemplateResults` either update an existing template instance or
-create a new one based on the identity of the template strings, a
-`DirectiveResult` either updates an existing directive instance or creates a new
-one based on the identity of the directive class.
-
-The indirection of directive functions that return `DirectiveResult`s that refer
-to directive classes gives us two things:
-
+This layer of indirection provides two main benefits:
 - A simple function-invocation syntax for template authors, even for stateful
   directives.
-- A simple way to write stateful directives. State on a directive is just a
-  class field.
+- A simple way to write stateful directives, where state is managed as class
+  fields on the directive instance.
 
-#### Invoking Directives
+#### Directive Lifecycle and Invocation
 
-When a TemplatePart receives a `DirectiveResult` object to `setValue()`, it must
-take some steps to either instantiate or update the directive instance.
+When a TemplatePart receives a `DirectiveResult` object in its `setValue()`
+method, it manages the lifecycle of the associated directive instance.
 
-Each part has an array of directive instances. It's an array because directives
-can be nested, for example, `outerDirective(innerDirective(value))`. This style
-of composition works when the outer directive works on generic values and passes
-them through to the underlying part. [TODO]
+1.  **Instantiation**: If the part's current value is not a directive instance of
+    the same class, a new directive instance is created by calling the
+    constructor of the directive class from the `DirectiveResult`. The new
+    instance is stored on the part.
+
+2.  **Update**: The `update()` method of the directive instance is called with the
+    values from the `DirectiveResult`. The return value of `update()` is then
+    passed to the part's `setValue()` method. This allows for directive
+    composition, where one directive can return the result of another, or pass
+    a value through to the underlying part.
+
+3.  **Connection/Disconnection**: When the part is connected to or disconnected
+    from the document, its `setConnected()` method is called. This will in turn
+    call the optional `connectedCallback()` and `disconnectedCallback()` methods
+    on the directive instance, allowing the directive to manage resources, set
+    up subscriptions, or perform cleanup.
+
+This mechanism is similar to how `TemplateResult` objects are handled by
+`ChildPart` to manage `TemplateInstance`s. The identity of the directive class
+is used as a key to determine whether to update an existing directive or create
+a new one.
+
+##### Directive Composition
+
+Directives can be composed by nesting directive function calls.
+
+```ts
+html`<p>${upper(bold(message))}</p>`
+```
+
+When `setValue()` is called on a part with a nested `DirectiveResult`, the part
+evaluates the directives from the outside in. Each `TemplatePart` maintains an
+array of active directive instances.
+
+1.  The part receives the outer `DirectiveResult` for `upper(bold(message))`.
+2.  It checks if the first directive instance in its array is an instance of
+    `UpperDirective`. If not, it creates a new `UpperDirective` instance.
+3.  It calls `update()` on the `UpperDirective` instance, passing it the inner
+    `DirectiveResult` for `bold(message)`.
+4.  The `UpperDirective`'s `update` method would then return its value. A common
+    pattern is for a directive to process the value and then return it, to be
+    handled by the next directive or the part itself.
+5.  The part receives the return value from `UpperDirective`. If it's another
+    `DirectiveResult` (which it is in this case), it repeats the process for the
+    next directive in the chain: `BoldDirective`.
+6.  It checks for or creates a `BoldDirective` instance at the second position in
+    its directive array.
+7.  It calls `update()` on the `BoldDirective` instance with the `message` value.
+8.  The `BoldDirective`'s `update` method might return a `TemplateResult` like
+    `` html`<b>${message}</b>` ``.
+9.  This `TemplateResult` is passed back to the `UpperDirective`.
+10. The `UpperDirective` can then take this result, transform it (e.g., by
+    traversing the template's values and making them uppercase), and return the
+    final value to be rendered by the part.
+
+If at any point a directive returns a value that is not a `DirectiveResult`,
+that value is considered the final value for the part and is rendered to the
+DOM. Any subsequent directives in the chain from a previous render are
+disconnected and removed. This allows directives to conditionally apply other
+directives.
 
 #### Why do we need directives?
 
