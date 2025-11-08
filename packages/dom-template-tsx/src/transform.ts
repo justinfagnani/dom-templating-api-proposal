@@ -17,7 +17,8 @@ interface TemplateData {
  */
 function jsxChildToTemplate(
   child: ts.JsxChild,
-  visitor: (node: ts.Node) => ts.Node
+  visitor: (node: ts.Node) => ts.Node,
+  componentFunctionName: string
 ): TemplateData {
   if (ts.isJsxText(child)) {
     // Return the text content as a single part
@@ -26,7 +27,7 @@ function jsxChildToTemplate(
 
   if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
     // Recursively process nested JSX elements
-    return jsxToTemplate(child, visitor);
+    return jsxToTemplate(child, visitor, componentFunctionName);
   }
 
   if (ts.isJsxExpression(child)) {
@@ -196,7 +197,8 @@ function processAttributesToProps(
  */
 function jsxToTemplate(
   node: ts.JsxElement | ts.JsxSelfClosingElement,
-  visitor: (node: ts.Node) => ts.Node
+  visitor: (node: ts.Node) => ts.Node,
+  componentFunctionName: string
 ): TemplateData {
   const tagNameExpr = ts.isJsxSelfClosingElement(node)
     ? node.tagName
@@ -219,7 +221,7 @@ function jsxToTemplate(
         componentArgs.push(ts.factory.createIdentifier('undefined'));
       }
       const childTemplates = node.children.map((child) =>
-        jsxChildToTemplate(child, visitor)
+        jsxChildToTemplate(child, visitor, componentFunctionName)
       );
       const childrenTemplateData = mergeTemplates(childTemplates);
       const templateLiteral = createTemplateLiteral(childrenTemplateData);
@@ -234,7 +236,7 @@ function jsxToTemplate(
       componentArgs.push(childrenTemplate);
     }
 
-    const componentDirective = ts.factory.createIdentifier('component');
+    const componentDirective = ts.factory.createIdentifier(componentFunctionName);
     const callExpression = ts.factory.createCallExpression(
       componentDirective,
       undefined,
@@ -263,7 +265,7 @@ function jsxToTemplate(
     const attrsTemplate = processAttributes(node.openingElement.attributes.properties, visitor);
 
     // Process all children
-    const childTemplates = node.children.map((child) => jsxChildToTemplate(child, visitor));
+    const childTemplates = node.children.map((child) => jsxChildToTemplate(child, visitor, componentFunctionName));
     const childrenTemplate = mergeTemplates(childTemplates);
 
     // Build: <tagName attrs> children </tagName>
@@ -310,13 +312,35 @@ function createTemplateLiteral(data: TemplateData): ts.TemplateLiteral {
 }
 
 /**
+ * Options for the JSX transformer.
+ */
+export interface TransformerOptions {
+  /**
+   * The name of the component directive function.
+   * @default 'jsxComponent'
+   */
+  componentFunctionName?: string;
+
+  /**
+   * The module to import the component directive from.
+   * If undefined, no import will be added.
+   */
+  componentModule?: string;
+}
+
+/**
  * Creates a TypeScript transformer that converts JSX to DOMTemplate.html tagged templates.
  */
 export function createTransformer(
-  _program?: ts.Program
+  _program?: ts.Program,
+  options?: TransformerOptions
 ): ts.TransformerFactory<ts.SourceFile> {
+  const componentFunctionName =
+    options?.componentFunctionName ?? 'jsxComponent';
+  const componentModule = options?.componentModule;
+
   return (context: ts.TransformationContext) => {
-    let usesComponentDirective = false;
+    let needsComponentImport = false;
     const visitor = (node: ts.Node): ts.Node => {
       // Transform JSX elements to DOMTemplate.html`` tagged template literals
       if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
@@ -324,9 +348,9 @@ export function createTransformer(
           ? node.tagName
           : node.openingElement.tagName;
         if (isComponent(tagNameExpr)) {
-          usesComponentDirective = true;
+          needsComponentImport = true;
         }
-        const templateData = jsxToTemplate(node, visitor);
+        const templateData = jsxToTemplate(node, visitor, componentFunctionName);
         const templateLiteral = createTemplateLiteral(templateData);
 
         // Create DOMTemplate.html`...`
@@ -353,12 +377,12 @@ export function createTransformer(
         visitor
       ) as ts.SourceFile;
 
-      if (usesComponentDirective) {
+      if (needsComponentImport && componentModule) {
         const statements = [...transformedSourceFile.statements];
         const importSpecifier = ts.factory.createImportSpecifier(
           false,
           undefined,
-          ts.factory.createIdentifier('component')
+          ts.factory.createIdentifier(componentFunctionName)
         );
         const namedBindings = ts.factory.createNamedImports([importSpecifier]);
         const importClause = ts.factory.createImportClause(
@@ -369,7 +393,7 @@ export function createTransformer(
         const importDeclaration = ts.factory.createImportDeclaration(
           undefined,
           importClause,
-          ts.factory.createStringLiteral('dom-templating/directives', true),
+          ts.factory.createStringLiteral(componentModule, true),
           undefined
         );
 
@@ -378,7 +402,7 @@ export function createTransformer(
           (st) =>
             ts.isImportDeclaration(st) &&
             st.moduleSpecifier.getText(sourceFile) ===
-              `'dom-templating'` &&
+              `'dom-templating-prototype'` &&
             st.importClause?.namedBindings &&
             ts.isNamedImports(st.importClause.namedBindings) &&
             st.importClause.namedBindings.elements.length === 1 &&
@@ -405,7 +429,7 @@ export function createTransformer(
  * Transforms a source file by applying the transformer.
  * This is a helper function for testing.
  */
-export function transformSource(source: string): string {
+export function transformSource(source: string, options?: TransformerOptions): string {
   const sourceFile = ts.createSourceFile(
     'test.tsx',
     source,
@@ -414,7 +438,7 @@ export function transformSource(source: string): string {
     ts.ScriptKind.TSX
   );
 
-  const result = ts.transform(sourceFile, [createTransformer()]);
+  const result = ts.transform(sourceFile, [createTransformer(undefined, options)]);
   const transformedSourceFile = result.transformed[0];
 
   const printer = ts.createPrinter({newLine: ts.NewLineKind.LineFeed});

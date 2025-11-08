@@ -22,7 +22,15 @@ describe('transform test cases', () => {
 
     test(testName, () => {
       const input = readFileSync(inputPath, 'utf-8');
-      const actual = transformSource(input);
+      let actual;
+      if (testName.startsWith('component-') && testName !== 'component-default-behavior') {
+        actual = transformSource(input, {
+          componentFunctionName: 'component',
+          componentModule: 'dom-templating-prototype/directives',
+        });
+      } else {
+        actual = transformSource(input);
+      }
 
       if (UPDATE_SNAPSHOTS) {
         writeFileSync(expectedPath, actual, 'utf-8');
