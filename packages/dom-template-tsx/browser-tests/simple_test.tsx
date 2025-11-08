@@ -13,11 +13,19 @@ declare global {
       [K in keyof HTMLElementEventMap as `on:${K}`]?: (event: HTMLElementEventMap[K]) => void;
     };
 
+    // Specific typed attributes with known values
+    type TypedAttributes = {
+      'attr:dir'?: 'ltr' | 'rtl' | 'auto';
+      // Add more typed attributes here as needed
+    };
+
     // Attributes are an open set, it's legal to set any attribute on any
-    // element.
-    type HTMLAttributes = {
+    // element. Use a separate type for the catch-all to avoid conflicts.
+    type ArbitraryAttributes = {
       [key: `attr:${string}`]: string | number | boolean;
     };
+
+    type HTMLAttributes = TypedAttributes & ArbitraryAttributes;
 
     // Base element type supporting all three binding modes
     type ElementAttributes = HTMLAttributes & EventHandlers;
@@ -129,7 +137,7 @@ suite('Browser Transform Tests', () => {
       const el3 = <div attr:data-testid="my-test"></div>;
       render(el3, container);
 
-      // We'd like this to be an error but currently it isn't.
+      // @ts-expect-error - "invalid" is not a valid dir value
       const bad = <div attr:dir="invalid"></div>;
     });
 
@@ -214,19 +222,26 @@ suite('Browser Transform Tests', () => {
       // @ts-expect-error - "fakeevent" is not a valid event name
       const bad4 = <div on:fakeevent={() => {}}></div>;
 
-      // These are valid because attributes are open-ended:
-      // - Any attribute name is allowed
-      // - Attribute values can be string/number/boolean (objects get stringified)
-      const ok1 = <div attr:dir="invalid-dir"></div>;
-      const ok2 = <div attr:data-value={{nested: true}}></div>;
+      // Invalid dir value
+      // @ts-expect-error - "invalid-dir" is not a valid dir value
+      const bad5 = <div attr:dir="invalid-dir"></div>;
+
+      // Hyphenated attributes (including data-*) don't enforce the type restriction
+      // due to TypeScript's handling of hyphenated JSX properties
+      const hyphenatedOk1 = <div attr:data-value={{nested: true}}></div>;
+      const hyphenatedOk2 = <div attr:custom-prop={{nested: true}}></div>;
+
+      // But non-hyphenated attribute names DO error with objects!
+      // @ts-expect-error - objects not allowed in attr: bindings
+      const bad6 = <div attr:customprop={{nested: true}}></div>;
 
       // Verify the bad ones are used to avoid unused variable warnings
       render(bad1, container);
       render(bad2, container);
       render(bad3, container);
       render(bad4, container);
-      render(ok1, container);
-      render(ok2, container);
+      render(bad5, container);
+      render(bad6, container);
     });
   });
 });
