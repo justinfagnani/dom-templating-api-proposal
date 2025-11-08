@@ -2,7 +2,7 @@
 
 Author: [Justin Fagnani](https://github/justinfagnani)
 
-DRAFT | Last update: 2025-07-12
+DRAFT | Last update: 2025-11-07
 
 > [!WARNING]
 > This document is a work in progress. This proposal draft is not finished and
@@ -801,7 +801,156 @@ values from the `TemplateResult`.
 `TemplateInstance.prototype.update()` iterates over its `TemplatePart`s and the
 new values, and calls `setValue()` on each part.
 
-Each part then handles updating its section of the DOM, and the static DOM cloned from the template is not visited or changed. This is how the proposal acheives efficient, DOM-stable updates.
+Each part then handles updating its section of the DOM, and the static DOM
+cloned from the template is not visited or changed. This is how the proposal
+acheives efficient, DOM-stable updates.
+
+### Directives
+
+Directives are stateful objects that can customize the behavior of a binding by
+getting direct access to the binding's TemplatePart and, therefore, the underlying
+DOM. Directives are an imperative hook to the declarative template system,
+through which userland code can add new declarative abstractions.
+
+A template author will typically use a directive by calling a directive function
+in a binding expression.
+
+For example, here's a template using an imagined library-defined `keyed()`
+directive to clear and recreate DOM whenever the key changes, customizing the
+DOM stability semantics of the system.
+
+```ts
+html`<div>${keyed(userId, html`<x-user userid=${userId}></x-user>`)}</div>`
+```
+
+Examples of the type of customization that a directive can do:
+- Custom change detection. A directive can store previous values and check new
+  values against them or against the current state of the DOM.
+- Subscriptions. A directive can subscribe to an observable resource (
+  EventTarget, signal, etc.) and unsubscribe when the directive is disconnected.
+- Modifying DOM. A directive can directly modify the DOM in order to add
+  custom DOM update behavior. For example, DOM-preserving list reordering,
+  general DOM morphing, keyed templates.
+- Detaching DOM. Directives can detach and store DOM for later reuse, like a
+  cache directive.
+
+#### Defining Directives
+
+A directive is defined by a class that extends the `Directive` base class. The
+core of a directive is its `update()` method, which receives the arguments from
+the directive function call in the template.
+
+```ts
+class MyDirective extends Directive {
+  // The update method defines the public API of the directive. The parameters
+  // to update() will be the parameters to the directive function created by
+  // `makeDirective()`.
+  update(foo: string) {
+    // The return value is what the underlying part will be set to.
+    return `MyDirective says: ${foo}`;
+  }
+}
+```
+
+The directive class is then turned into a directive _function_ with the
+`makeDirective()` factory:
+
+```ts
+// myDirective() is a function with the same signature as MyDirective.update():
+const myDirective = makeDirective(MyDirective);
+```
+
+`makeDirective()` returns a function with the same signature as the directive
+class's `update()` method. This function doesn't instantiate the class or invoke
+its `update()` method directly. Instead, it returns a `DirectiveResult` object that
+captures references to the directive class constructor and the arguments passed
+to the directive function.
+
+This layer of indirection provides two main benefits:
+- A simple function-invocation syntax for template authors, even for stateful
+  directives.
+- A simple way to write stateful directives, where state is managed as class
+  fields on the directive instance.
+
+#### Directive Lifecycle and Invocation
+
+When a TemplatePart receives a `DirectiveResult` object in its `setValue()`
+method, it manages the lifecycle of the associated directive instance.
+
+1.  **Instantiation**: If the part's current value is not a directive instance of
+    the same class, a new directive instance is created by calling the
+    constructor of the directive class from the `DirectiveResult`. The new
+    instance is stored on the part.
+
+2.  **Update**: The `update()` method of the directive instance is called with the
+    values from the `DirectiveResult`. The return value of `update()` is then
+    passed to the part's `setValue()` method. This allows for directive
+    composition, where one directive can return the result of another, or pass
+    a value through to the underlying part.
+
+3.  **Connection/Disconnection**: When the part is connected to or disconnected
+    from the document, its `setConnected()` method is called. This will in turn
+    call the optional `connectedCallback()` and `disconnectedCallback()` methods
+    on the directive instance, allowing the directive to manage resources, set
+    up subscriptions, or perform cleanup.
+
+This mechanism is similar to how `TemplateResult` objects are handled by
+`ChildPart` to manage `TemplateInstance`s. The identity of the directive class
+is used as a key to determine whether to update an existing directive or create
+a new one.
+
+##### Directive Composition
+
+Directives can be composed by nesting directive function calls.
+
+```ts
+html`<p>${upper(bold(message))}</p>`
+```
+
+When `setValue()` is called on a part with a nested `DirectiveResult`, the part
+evaluates the directives from the outside in. Each `TemplatePart` maintains an
+array of active directive instances.
+
+1.  The part receives the outer `DirectiveResult` for `upper(bold(message))`.
+2.  It checks if the first directive instance in its array is an instance of
+    `UpperDirective`. If not, it creates a new `UpperDirective` instance.
+3.  It calls `update()` on the `UpperDirective` instance, passing it the inner
+    `DirectiveResult` for `bold(message)`.
+4.  The `UpperDirective`'s `update` method would then return its value. A common
+    pattern is for a directive to process the value and then return it, to be
+    handled by the next directive or the part itself.
+5.  The part receives the return value from `UpperDirective`. If it's another
+    `DirectiveResult` (which it is in this case), it repeats the process for the
+    next directive in the chain: `BoldDirective`.
+6.  It checks for or creates a `BoldDirective` instance at the second position in
+    its directive array.
+7.  It calls `update()` on the `BoldDirective` instance with the `message` value.
+8.  The `BoldDirective`'s `update` method might return a `TemplateResult` like
+    `` html`<b>${message}</b>` ``.
+9.  This `TemplateResult` is passed back to the `UpperDirective`.
+10. The `UpperDirective` can then take this result, transform it (e.g., by
+    traversing the template's values and making them uppercase), and return the
+    final value to be rendered by the part.
+
+If at any point a directive returns a value that is not a `DirectiveResult`,
+that value is considered the final value for the part and is rendered to the
+DOM. Any subsequent directives in the chain from a previous render are
+disconnected and removed. This allows directives to conditionally apply other
+directives.
+
+#### Why do we need directives?
+
+Directives serve a couple of important purposes in terms of the core template
+system:
+
+- They help keep the core system simpler by decoupling advanced and opinionated
+  behaviors from the core so they can be implemented in userland extensions.
+- They keep the syntax simpler by putting some binding-specific options into the
+  JavaScript expression side of the template and out of the string literal
+  side.
+
+Without directives, the built-in system would need to account for more needs
+around keying, caching, stable list reordering, pinpoint DOM updates, and more.
 
 ### Fine-grained template part updates
 
@@ -1223,153 +1372,6 @@ class DirectiveResult {
   readonly values: DirectiveParameters<InstanceType<C>>;
 }
 ```
-
-### Directives
-
-Directives are stateful objects that can customize the behavior of a binding by
-getting direct access to the binding's TemplatePart and, therefore, the underlying
-DOM. Directives are an imperative hook to the declarative template system,
-through which userland code can add new declarative abstractions.
-
-A template author will typically use a directive by calling a directive function
-in a binding expression.
-
-For example, here's a template using an imagined library-defined `keyed()`
-directive to clear and recreate DOM whenever the key changes, customizing the
-DOM stability semantics of the system.
-
-```ts
-html`<div>${keyed(userId, html`<x-user userid=${userId}></x-user>`)}</div>`
-```
-
-Examples of the type of customization that a directive can do:
-- Custom change detection. A directive can store previous values and check new
-  values against them or against the current state of the DOM.
-- Subscriptions. A directive can subscribe to an observable resource (
-  EventTarget, signal, etc.) and unsubscribe when the directive is disconnected.
-- Modifying DOM. A directive can directly modify the DOM in order to add
-  custom DOM update behavior. For example, DOM-preserving list reordering,
-  general DOM morphing, keyed templates.
-- Detaching DOM. Directives can detach and store DOM for later reuse, like a
-  cache directive.
-
-#### Defining Directives
-
-A directive is defined by a class that extends the `Directive` base class. The
-core of a directive is its `update()` method, which receives the arguments from
-the directive function call in the template.
-
-```ts
-class MyDirective extends Directive {
-  // The update method defines the public API of the directive. The parameters
-  // to update() will be the parameters to the directive function created by
-  // `makeDirective()`.
-  update(foo: string) {
-    // The return value is what the underlying part will be set to.
-    return `MyDirective says: ${foo}`;
-  }
-}
-```
-
-The directive class is then turned into a directive _function_ with the
-`makeDirective()` factory:
-
-```ts
-// myDirective() is a function with the same signature as MyDirective.update():
-const myDirective = makeDirective(MyDirective);
-```
-
-`makeDirective()` returns a function with the same signature as the directive
-class's `update()` method. This function doesn't instantiate the class or invoke
-its `update()` method directly. Instead, it returns a `DirectiveResult` object that
-captures references to the directive class constructor and the arguments passed
-to the directive function.
-
-This layer of indirection provides two main benefits:
-- A simple function-invocation syntax for template authors, even for stateful
-  directives.
-- A simple way to write stateful directives, where state is managed as class
-  fields on the directive instance.
-
-#### Directive Lifecycle and Invocation
-
-When a TemplatePart receives a `DirectiveResult` object in its `setValue()`
-method, it manages the lifecycle of the associated directive instance.
-
-1.  **Instantiation**: If the part's current value is not a directive instance of
-    the same class, a new directive instance is created by calling the
-    constructor of the directive class from the `DirectiveResult`. The new
-    instance is stored on the part.
-
-2.  **Update**: The `update()` method of the directive instance is called with the
-    values from the `DirectiveResult`. The return value of `update()` is then
-    passed to the part's `setValue()` method. This allows for directive
-    composition, where one directive can return the result of another, or pass
-    a value through to the underlying part.
-
-3.  **Connection/Disconnection**: When the part is connected to or disconnected
-    from the document, its `setConnected()` method is called. This will in turn
-    call the optional `connectedCallback()` and `disconnectedCallback()` methods
-    on the directive instance, allowing the directive to manage resources, set
-    up subscriptions, or perform cleanup.
-
-This mechanism is similar to how `TemplateResult` objects are handled by
-`ChildPart` to manage `TemplateInstance`s. The identity of the directive class
-is used as a key to determine whether to update an existing directive or create
-a new one.
-
-##### Directive Composition
-
-Directives can be composed by nesting directive function calls.
-
-```ts
-html`<p>${upper(bold(message))}</p>`
-```
-
-When `setValue()` is called on a part with a nested `DirectiveResult`, the part
-evaluates the directives from the outside in. Each `TemplatePart` maintains an
-array of active directive instances.
-
-1.  The part receives the outer `DirectiveResult` for `upper(bold(message))`.
-2.  It checks if the first directive instance in its array is an instance of
-    `UpperDirective`. If not, it creates a new `UpperDirective` instance.
-3.  It calls `update()` on the `UpperDirective` instance, passing it the inner
-    `DirectiveResult` for `bold(message)`.
-4.  The `UpperDirective`'s `update` method would then return its value. A common
-    pattern is for a directive to process the value and then return it, to be
-    handled by the next directive or the part itself.
-5.  The part receives the return value from `UpperDirective`. If it's another
-    `DirectiveResult` (which it is in this case), it repeats the process for the
-    next directive in the chain: `BoldDirective`.
-6.  It checks for or creates a `BoldDirective` instance at the second position in
-    its directive array.
-7.  It calls `update()` on the `BoldDirective` instance with the `message` value.
-8.  The `BoldDirective`'s `update` method might return a `TemplateResult` like
-    `` html`<b>${message}</b>` ``.
-9.  This `TemplateResult` is passed back to the `UpperDirective`.
-10. The `UpperDirective` can then take this result, transform it (e.g., by
-    traversing the template's values and making them uppercase), and return the
-    final value to be rendered by the part.
-
-If at any point a directive returns a value that is not a `DirectiveResult`,
-that value is considered the final value for the part and is rendered to the
-DOM. Any subsequent directives in the chain from a previous render are
-disconnected and removed. This allows directives to conditionally apply other
-directives.
-
-#### Why do we need directives?
-
-Directives serve a couple of important purposes in terms of the core template
-system:
-
-- They help keep the core system simpler by decoupling advanced and opinionated
-  behaviors from the core so they can be implemented in userland extensions.
-- They keep the syntax simpler by putting some binding-specific options into the
-  JavaScript expression side of the template and out of the string literal
-  side.
-
-Without directives, the built-in system would need to account for more needs
-around keying, caching, stable list reordering, pinpoint DOM updates, and more.
 
 ### Other API Shapes Considered
 
