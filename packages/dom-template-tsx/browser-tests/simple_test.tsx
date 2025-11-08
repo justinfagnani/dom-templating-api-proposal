@@ -2,6 +2,14 @@ import {assert} from 'chai';
 import * as DOMTemplate from '../../dom-templating-prototype/index.js';
 import {render} from '../../dom-templating-prototype/index.js';
 
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elem: string]: any;
+    }
+  }
+}
+
 /**
  * Strips expression comments from provided html string.
  */
