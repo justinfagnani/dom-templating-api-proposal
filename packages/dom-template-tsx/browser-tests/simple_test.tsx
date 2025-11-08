@@ -1,40 +1,7 @@
-import {assert} from 'chai';
+import type { } from './jsx-types.d.ts';
+import { assert } from 'chai';
 import * as DOMTemplate from '../../dom-templating-prototype/index.js';
 import {render} from '../../dom-templating-prototype/index.js';
-
-declare global {
-  namespace JSX {
-    // Helper types for extracting attribute/event names from prefixed keys
-    type AttributeKey<K> = K extends `attr:${infer Name}` ? Name : never;
-    type EventKey<K> = K extends `on:${infer Name}` ? Name : never;
-
-    // Map event names to their handler types
-    type EventHandlers = {
-      [K in keyof HTMLElementEventMap as `on:${K}`]?: (event: HTMLElementEventMap[K]) => void;
-    };
-
-    // Specific typed attributes with known values
-    type TypedAttributes = {
-      'attr:dir'?: 'ltr' | 'rtl' | 'auto';
-      // Add more typed attributes here as needed
-    };
-
-    // Attributes are an open set, it's legal to set any attribute on any
-    // element. Use a separate type for the catch-all to avoid conflicts.
-    type ArbitraryAttributes = {
-      [key: `attr:${string}`]: string | number | boolean;
-    };
-
-    type HTMLAttributes = TypedAttributes & ArbitraryAttributes;
-
-    // Base element type supporting all three binding modes
-    type ElementAttributes = HTMLAttributes & EventHandlers;
-
-    type IntrinsicElements = {
-      [K in keyof HTMLElementTagNameMap]: Partial<HTMLElementTagNameMap[K]> & ElementAttributes;
-    };
-  }
-}
 
 /**
  * Strips expression comments from provided html string.
@@ -116,7 +83,7 @@ suite('Browser Transform Tests', () => {
     test('property bindings accept arbitrary properties', () => {
       // These should all type-check because property bindings allow any property
       // Using tabIndex (real property that doesn't exist as attribute on div)
-      const el = <div tabIndex={0} textContent="content"></div>;
+      const el = <div tabIndex={0} textContent={'content'}></div>;
       render(el, container);
       const div = container.querySelector('div');
       assert.equal(div?.tabIndex, 0);
