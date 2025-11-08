@@ -145,12 +145,104 @@ function processAttributes(
 }
 
 /**
+ * Returns true if the JSX tag name represents a component (starts with an uppercase letter).
+ */
+function isComponent(tagName: ts.JsxTagNameExpression): boolean {
+  const name = tagName.getText();
+  return name[0] >= 'A' && name[0] <= 'Z';
+}
+
+/**
+ * Processes JSX attributes into an object literal for component props.
+ */
+function processAttributesToProps(
+  attributes: ts.NodeArray<ts.JsxAttributeLike>,
+  visitor: (node: ts.Node) => ts.Node
+): ts.ObjectLiteralExpression | undefined {
+  const properties: ts.ObjectLiteralElementLike[] = [];
+
+  for (const attr of attributes) {
+    if (ts.isJsxAttribute(attr)) {
+      const name = attr.name.getText();
+      const propName = ts.factory.createIdentifier(name);
+      let propValue: ts.Expression;
+
+      if (!attr.initializer) {
+        // Boolean attribute: <MyComponent disabled />
+        propValue = ts.factory.createTrue();
+      } else if (ts.isStringLiteral(attr.initializer)) {
+        // String literal: <MyComponent foo="bar" />
+        propValue = ts.factory.createStringLiteral(attr.initializer.text);
+      } else if (ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
+        // Expression: <MyComponent foo={bar} />
+        propValue = ts.visitNode(attr.initializer.expression, visitor) as ts.Expression;
+      } else {
+        continue;
+      }
+      properties.push(ts.factory.createPropertyAssignment(propName, propValue));
+    }
+    // Note: JsxSpreadAttribute is not handled yet.
+  }
+
+  if (properties.length === 0) {
+    return undefined;
+  }
+
+  return ts.factory.createObjectLiteralExpression(properties, true);
+}
+
+/**
  * Converts a JSX element to template data.
  */
 function jsxToTemplate(
   node: ts.JsxElement | ts.JsxSelfClosingElement,
   visitor: (node: ts.Node) => ts.Node
 ): TemplateData {
+  const tagNameExpr = ts.isJsxSelfClosingElement(node)
+    ? node.tagName
+    : node.openingElement.tagName;
+  const attributes = ts.isJsxSelfClosingElement(node)
+    ? node.attributes
+    : node.openingElement.attributes;
+
+  if (isComponent(tagNameExpr)) {
+    const componentIdentifier = ts.factory.createIdentifier(tagNameExpr.getText());
+    const propsObject = processAttributesToProps(attributes.properties, visitor);
+
+    const componentArgs: ts.Expression[] = [componentIdentifier];
+    if (propsObject) {
+      componentArgs.push(propsObject);
+    }
+
+    if (ts.isJsxElement(node) && node.children.length > 0) {
+      if (!propsObject) {
+        componentArgs.push(ts.factory.createIdentifier('undefined'));
+      }
+      const childTemplates = node.children.map((child) =>
+        jsxChildToTemplate(child, visitor)
+      );
+      const childrenTemplateData = mergeTemplates(childTemplates);
+      const templateLiteral = createTemplateLiteral(childrenTemplateData);
+      const childrenTemplate = ts.factory.createTaggedTemplateExpression(
+        ts.factory.createPropertyAccessExpression(
+          ts.factory.createIdentifier('DOMTemplate'),
+          ts.factory.createIdentifier('html')
+        ),
+        undefined,
+        templateLiteral
+      );
+      componentArgs.push(childrenTemplate);
+    }
+
+    const componentDirective = ts.factory.createIdentifier('component');
+    const callExpression = ts.factory.createCallExpression(
+      componentDirective,
+      undefined,
+      componentArgs
+    );
+    return {parts: ['', ''], expressions: [callExpression]};
+  }
+
   if (ts.isJsxSelfClosingElement(node)) {
     const tagName = node.tagName.getText();
     const attrsTemplate = processAttributes(node.attributes.properties, visitor);
@@ -224,9 +316,16 @@ export function createTransformer(
   _program?: ts.Program
 ): ts.TransformerFactory<ts.SourceFile> {
   return (context: ts.TransformationContext) => {
+    let usesComponentDirective = false;
     const visitor = (node: ts.Node): ts.Node => {
       // Transform JSX elements to DOMTemplate.html`` tagged template literals
       if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+        const tagNameExpr = ts.isJsxSelfClosingElement(node)
+          ? node.tagName
+          : node.openingElement.tagName;
+        if (isComponent(tagNameExpr)) {
+          usesComponentDirective = true;
+        }
         const templateData = jsxToTemplate(node, visitor);
         const templateLiteral = createTemplateLiteral(templateData);
 
@@ -249,7 +348,55 @@ export function createTransformer(
 
     return (sourceFile: ts.SourceFile): ts.SourceFile => {
       // Transform JSX elements
-      return ts.visitNode(sourceFile, visitor) as ts.SourceFile;
+      const transformedSourceFile = ts.visitNode(
+        sourceFile,
+        visitor
+      ) as ts.SourceFile;
+
+      if (usesComponentDirective) {
+        const statements = [...transformedSourceFile.statements];
+        const importSpecifier = ts.factory.createImportSpecifier(
+          false,
+          undefined,
+          ts.factory.createIdentifier('component')
+        );
+        const namedBindings = ts.factory.createNamedImports([importSpecifier]);
+        const importClause = ts.factory.createImportClause(
+          false,
+          undefined,
+          namedBindings
+        );
+        const importDeclaration = ts.factory.createImportDeclaration(
+          undefined,
+          importClause,
+          ts.factory.createStringLiteral('dom-templating/directives', true),
+          undefined
+        );
+
+        // Find and remove the `DomTemplate` import if it's a single-element import
+        const domTemplateImportIndex = statements.findIndex(
+          (st) =>
+            ts.isImportDeclaration(st) &&
+            st.moduleSpecifier.getText(sourceFile) ===
+              `'dom-templating'` &&
+            st.importClause?.namedBindings &&
+            ts.isNamedImports(st.importClause.namedBindings) &&
+            st.importClause.namedBindings.elements.length === 1 &&
+            st.importClause.namedBindings.elements[0].name.getText(
+              sourceFile
+            ) === 'DomTemplate'
+        );
+
+        if (domTemplateImportIndex !== -1) {
+          statements.splice(domTemplateImportIndex, 1);
+        }
+
+        return ts.factory.updateSourceFile(transformedSourceFile, [
+          importDeclaration,
+          ...statements,
+        ]);
+      }
+      return transformedSourceFile;
     };
   };
 }

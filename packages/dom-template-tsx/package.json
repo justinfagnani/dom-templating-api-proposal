@@ -50,7 +50,9 @@
       "dependencies": [
         "build"
       ],
-      "files": [],
+      "files": [
+        "test/cases/**/*"
+      ],
       "outputs": []
     },
     "test:update-snapshots": {
@@ -58,8 +60,12 @@
       "dependencies": [
         "build"
       ],
-      "files": [],
-      "output": []
+      "files": [
+        "test/cases/**/*.tsx"
+      ],
+      "output": [
+        "test/cases/**/*.ts"
+      ]
     },
     "build:browser-tests": {
       "command": "tspc -p browser-tests/tsconfig.json",
