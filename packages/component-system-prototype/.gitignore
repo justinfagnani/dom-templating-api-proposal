@@ -1,0 +1,8 @@
+*.js
+*.js.map
+*.d.ts
+*.d.ts.map
+.tsbuildinfo
+node_modules/
+browser-tests-out/
+!browser-tests/*.d.ts
