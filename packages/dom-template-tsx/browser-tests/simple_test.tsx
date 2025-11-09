@@ -79,6 +79,78 @@ suite('Browser Transform Tests', () => {
     assert.equal(stripExpressionComments(container.innerHTML), '<div><span>No</span></div>');
   });
 
+  suite('Fragment Tests', () => {
+    test('simple fragment', () => {
+      const result = <>
+        <div>First</div>
+        <div>Second</div>
+      </>;
+      render(result, container);
+      assert.equal(stripExpressionComments(container.innerHTML), '<div>First</div><div>Second</div>');
+    });
+
+    test('fragment with text', () => {
+      const result = <>
+        Hello
+        <span>World</span>
+      </>;
+      render(result, container);
+      assert.equal(stripExpressionComments(container.innerHTML), 'Hello<span>World</span>');
+    });
+
+    test('fragment with expressions', () => {
+      const name = 'Test';
+      const result = <>
+        <span>Hello</span>
+        {name}
+        <span>!</span>
+      </>;
+      render(result, container);
+      assert.equal(stripExpressionComments(container.innerHTML), '<span>Hello</span>Test<span>!</span>');
+    });
+
+    test('nested fragment', () => {
+      const result = <div>
+        Before
+        <>
+          <span>Inside</span>
+          <span>Fragment</span>
+        </>
+        After
+      </div>;
+      render(result, container);
+      assert.equal(stripExpressionComments(container.innerHTML), '<div>Before<span>Inside</span><span>Fragment</span>After</div>');
+    });
+
+    test('fragment in conditional', () => {
+      const show = true;
+      const result = <div>
+        {show ? <>
+          <span>Item 1</span>
+          <span>Item 2</span>
+        </> : <span>Nothing</span>}
+      </div>;
+      render(result, container);
+      assert.equal(stripExpressionComments(container.innerHTML), '<div><span>Item 1</span><span>Item 2</span></div>');
+    });
+
+    test('multiple nested fragments', () => {
+      const result = <>
+        <div>Top</div>
+        <>
+          <span>Nested 1</span>
+          <>
+            <span>Deeply nested</span>
+          </>
+          <span>Nested 2</span>
+        </>
+        <div>Bottom</div>
+      </>;
+      render(result, container);
+      assert.equal(stripExpressionComments(container.innerHTML), '<div>Top</div><span>Nested 1</span><span>Deeply nested</span><span>Nested 2</span><div>Bottom</div>');
+    });
+  });
+
   suite('Type System Showcase', () => {
     test('property bindings accept arbitrary properties', () => {
       // These should all type-check because property bindings allow any property
