@@ -99,7 +99,7 @@ suite('Component System - Advanced Tests', () => {
   suite('Component children', () => {
     test('component receives children prop', () => {
       function Wrapper({children}: ComponentProps) {
-        return <div attr:class="wrapper">{children}</div>;
+        return <div class="wrapper">{children}</div>;
       }
 
       render(
@@ -160,11 +160,11 @@ suite('Component System - Advanced Tests', () => {
           <li>
             <input
               type="checkbox"
-              checked={todo.completed}
+              prop:checked={todo.completed}
               on:change={() => onToggle(todo.id)}
             />
             <span
-              attr:style={todo.completed ? 'text-decoration: line-through' : ''}
+              style={todo.completed ? 'text-decoration: line-through' : ''}
             >
               {todo.text}
             </span>

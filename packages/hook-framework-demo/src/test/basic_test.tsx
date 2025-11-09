@@ -56,7 +56,7 @@ suite('Component System - Basic Tests', () => {
 
     test('handles property bindings', () => {
       const value = 'test-value';
-      const result = <div textContent={value}></div>;
+      const result = <div prop:textContent={value}></div>;
       render(result, container);
       const div = container.querySelector('div');
       assert.equal(div?.textContent, 'test-value');

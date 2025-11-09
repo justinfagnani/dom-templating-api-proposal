@@ -165,7 +165,7 @@ suite('Component System - Type Checking', () => {
 
     test('component with children validates type', () => {
       function Wrapper({children}: {children?: TemplateResult}) {
-        return <div attr:class="wrapper">{children}</div>;
+        return <div class="wrapper">{children}</div>;
       }
 
       // Should work with children

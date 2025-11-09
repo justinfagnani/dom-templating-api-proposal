@@ -108,8 +108,8 @@ is called.
 Based on the `dom-template-tsx` transform, component templates can be written
 in JSX. This flavor of JSX supports:
 - Components: written with capital-letter starting "tag names": `<App/>`
-- Property bindings: `<MyComponent foo={x}/>`
-- Attribute bindings: `<MyComponent attr:foo={x}/>`
+- Attribute bindings: `<MyComponent foo={x}/>`
+- Property bindings: `<MyComponent prop:foo={x}/>`
 - Event bindings: `<MyComponent on:foo={x}/>`
 - Children: `<MyComponent><p>Hi</p></MyComponent>`
 

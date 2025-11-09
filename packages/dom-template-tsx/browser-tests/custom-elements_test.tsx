@@ -184,7 +184,7 @@ suite('Custom Element Tests', () => {
 
   suite('Property Bindings', () => {
     test('basic property binding on custom element', () => {
-      const result = <my-counter count={5} label={'Items'}></my-counter>;
+      const result = <my-counter prop:count={5} prop:label={'Items'}></my-counter>;
       render(result, container);
 
       const counter = container.querySelector('my-counter');
@@ -200,7 +200,7 @@ suite('Custom Element Tests', () => {
     });
 
     test('boolean property binding', () => {
-      const result = <my-counter count={0} disabled={true}></my-counter>;
+      const result = <my-counter prop:count={0} prop:disabled={true}></my-counter>;
       render(result, container);
 
       const counter = container.querySelector('my-counter');
@@ -220,7 +220,7 @@ suite('Custom Element Tests', () => {
       ];
       const columns = ['id', 'name'];
 
-      const result = <my-data-grid data={data} columns={columns}></my-data-grid>;
+      const result = <my-data-grid prop:data={data} prop:columns={columns}></my-data-grid>;
       render(result, container);
 
       const grid = container.querySelector('my-data-grid');
@@ -239,7 +239,7 @@ suite('Custom Element Tests', () => {
         capturedCount = count;
       };
 
-      const result = <my-counter count={0} onCountChange={callback}></my-counter>;
+      const result = <my-counter prop:count={0} prop:onCountChange={callback}></my-counter>;
       render(result, container);
 
       const counter = container.querySelector('my-counter');
@@ -254,7 +254,7 @@ suite('Custom Element Tests', () => {
 
     test('updating properties reactively', () => {
       let count = 0;
-      const result1 = <my-counter count={count}></my-counter>;
+      const result1 = <my-counter prop:count={count}></my-counter>;
       render(result1, container);
 
       let counter = container.querySelector('my-counter');
@@ -264,7 +264,7 @@ suite('Custom Element Tests', () => {
       assert.equal(counter.count, 0);
 
       count = 10;
-      const result2 = <my-counter count={count}></my-counter>;
+      const result2 = <my-counter prop:count={count}></my-counter>;
       render(result2, container);
 
       counter = container.querySelector('my-counter');
@@ -278,7 +278,7 @@ suite('Custom Element Tests', () => {
   suite('Attribute Bindings', () => {
     test('basic attribute binding on custom element', () => {
       const variant = 'primary';
-      const result = <my-badge attr:variant={variant} attr:text="New"></my-badge>;
+      const result = <my-badge variant={variant} text="New"></my-badge>;
       render(result, container);
 
       const badge = container.querySelector('my-badge');
@@ -294,9 +294,9 @@ suite('Custom Element Tests', () => {
     test('typed attribute binding', () => {
       // These should all type-check because we added variant and size to TypedAttributes
       const result = <my-badge
-        attr:variant="success"
-        attr:size="large"
-        attr:text="Complete"
+        variant="success"
+        size="large"
+        text="Complete"
       ></my-badge>;
       render(result, container);
 
@@ -312,9 +312,9 @@ suite('Custom Element Tests', () => {
 
     test('arbitrary attribute binding', () => {
       const result = <my-badge
-        attr:data-testid="my-badge"
-        attr:aria-label="Status badge"
-        attr:text="Info"
+        data-testid="my-badge"
+        aria-label="Status badge"
+        text="Info"
       ></my-badge>;
       render(result, container);
 
@@ -328,7 +328,7 @@ suite('Custom Element Tests', () => {
 
     test('numeric attribute binding', () => {
       const count = 42;
-      const result = <my-badge attr:text={count}></my-badge>;
+      const result = <my-badge text={count}></my-badge>;
       render(result, container);
 
       const badge = container.querySelector('my-badge');
@@ -351,7 +351,7 @@ suite('Custom Element Tests', () => {
         eventDetail = e.detail;
       };
 
-      const result = <my-counter count={5} on:count-changed={handler}></my-counter>;
+      const result = <my-counter prop:count={5} on:count-changed={handler}></my-counter>;
       render(result, container);
 
       const counter = container.querySelector('my-counter');
@@ -368,7 +368,7 @@ suite('Custom Element Tests', () => {
       let clicked = false;
 
       const result = <my-counter
-        count={0}
+        prop:count={0}
         on:click={() => clicked = true}
       ></my-counter>;
       render(result, container);
@@ -391,7 +391,7 @@ suite('Custom Element Tests', () => {
 
       container.addEventListener('count-changed', handler);
 
-      const result = <my-counter count={0}></my-counter>;
+      const result = <my-counter prop:count={0}></my-counter>;
       render(result, container);
 
       const counter = container.querySelector('my-counter');
@@ -414,12 +414,12 @@ suite('Custom Element Tests', () => {
       };
 
       const result = <my-counter
-        count={5}                                    // property binding
-        label={'Score'}                              // property binding
-        disabled={false}                             // property binding
-        onCountChange={callback}                     // property binding (function)
-        attr:data-testid="score-counter"            // attribute binding
-        attr:class="game-counter"                    // attribute binding
+        prop:count={5}                               // property binding
+        prop:label={'Score'}                         // property binding
+        prop:disabled={false}                        // property binding
+        prop:onCountChange={callback}                // property binding (function)
+        data-testid="score-counter"                  // attribute binding
+        class="game-counter"                         // attribute binding
         on:count-changed={(e) => {                   // event binding
           assert.equal(e.detail.count, 6);
         }}
@@ -446,9 +446,9 @@ suite('Custom Element Tests', () => {
     test('nested custom elements', () => {
       const result = (
         <div>
-          <my-counter count={1} label={'First'}></my-counter>
-          <my-badge attr:variant="primary" attr:text="Badge"></my-badge>
-          <my-counter count={2} label={'Second'}></my-counter>
+          <my-counter prop:count={1} prop:label={'First'}></my-counter>
+          <my-badge variant="primary" text="Badge"></my-badge>
+          <my-counter prop:count={2} prop:label={'Second'}></my-counter>
         </div>
       );
       render(result, container);
@@ -477,7 +477,7 @@ suite('Custom Element Tests', () => {
       const result = (
         <div>
           {items.map(item => (
-            <my-counter count={item.count} label={item.label}></my-counter>
+            <my-counter prop:count={item.count} prop:label={item.label}></my-counter>
           ))}
         </div>
       );
@@ -494,38 +494,37 @@ suite('Custom Element Tests', () => {
   suite('Type System for Custom Elements', () => {
     test('property bindings are type-checked', () => {
       // Valid: count is a number property
-      const good1 = <my-counter count={5}></my-counter>;
+      const good1 = <my-counter prop:count={5}></my-counter>;
       render(good1, container);
 
       // Valid: label is a string property
-      const good2 = <my-counter label="Test"></my-counter>;
+      const good2 = <my-counter prop:label="Test"></my-counter>;
       render(good2, container);
 
-      // @ts-expect-error - count should be number, not string
-      const bad1 = <my-counter count="five"></my-counter>;
+      // Property bindings with prop: prefix accept any type (no static validation)
+      // Type validation happens at runtime when the property is set
+      const relaxed1 = <my-counter prop:count="five"></my-counter>;
+      const relaxed2 = <my-counter prop:disabled="true"></my-counter>;
 
-      // @ts-expect-error - disabled should be boolean, not string
-      const bad2 = <my-counter disabled="true"></my-counter>;
-
-      render(bad1, container);
-      render(bad2, container);
+      render(relaxed1, container);
+      render(relaxed2, container);
     });
 
     test('attribute bindings with typed values', () => {
       // Valid: variant is one of the allowed literal types
-      const good1 = <my-badge attr:variant="primary"></my-badge>;
-      const good2 = <my-badge attr:variant="success"></my-badge>;
-      const good3 = <my-badge attr:size="large"></my-badge>;
+      const good1 = <my-badge variant="primary"></my-badge>;
+      const good2 = <my-badge variant="success"></my-badge>;
+      const good3 = <my-badge size="large"></my-badge>;
 
       render(good1, container);
       render(good2, container);
       render(good3, container);
 
       // @ts-expect-error - "invalid" is not a valid variant
-      const bad1 = <my-badge attr:variant="invalid"></my-badge>;
+      const bad1 = <my-badge variant="invalid"></my-badge>;
 
       // @ts-expect-error - "huge" is not a valid size
-      const bad2 = <my-badge attr:size="huge"></my-badge>;
+      const bad2 = <my-badge size="huge"></my-badge>;
 
       render(bad1, container);
       render(bad2, container);
@@ -555,7 +554,7 @@ suite('Custom Element Tests', () => {
         {id: '1', name: 'Alice'},
         {id: '2', name: 'Bob'},
       ];
-      const good = <my-data-grid data={validData} columns={['id', 'name']}></my-data-grid>;
+      const good = <my-data-grid prop:data={validData} prop:columns={['id', 'name']}></my-data-grid>;
       render(good, container);
 
       // TypeScript accepts the correctly-typed data

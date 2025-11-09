@@ -9,8 +9,8 @@ proposal](https://github.com/justinfagnani/dom-templating-api-proposal).
   tagged template literals
 - **Components**: Supports component references by transforming to directives
   calls
-- **Explicit Binding Types**: Property bindings are default, with prefixes for
-  attribute (`attr:`), and event (`on:`) bindings
+- **Explicit Binding Types**: Attribute bindings are default, with prefixes for
+  property (`prop:`), and event (`on:`) bindings
 
 ## How It Works
 
@@ -22,8 +22,8 @@ The transformer processes JSX at compile time and converts it to
 Regular HTML elements are transformed into template strings with special binding
 prefixes:
 
-- **Property bindings** (default): `<div foo={value}>` → `<div .foo=${value}>`
-- **Attribute bindings**: `<div attr:id={value}>` → `<div id=${value}>`
+- **Attribute bindings** (default): `<div id={value}>` → `<div id=${value}>`
+- **Property bindings**: `<div prop:foo={value}>` → `<div .foo=${value}>`
 - **Event bindings**: `<button on:click={handler}>` → `<button
   @click=${handler}>`
 
@@ -66,35 +66,35 @@ const name = "World";
 const el = DOMTemplate.html`<div>Hello ${name}</div>`;
 ```
 
-### Property Binding
-
-```tsx
-// Input
-function propertyBinding() {
-  const value = "test";
-  return <div foo={value}></div>;
-}
-
-// Output
-function propertyBinding() {
-  const value = "test";
-  return DOMTemplate.html`<div .foo=${value}></div>`;
-}
-```
-
 ### Attribute Binding
 
 ```tsx
 // Input
 function attributeBinding() {
   const id = "my-id";
-  return <div attr:id={id}></div>;
+  return <div id={id}></div>;
 }
 
 // Output
 function attributeBinding() {
   const id = "my-id";
   return DOMTemplate.html`<div id=${id}></div>`;
+}
+```
+
+### Property Binding
+
+```tsx
+// Input
+function propertyBinding() {
+  const value = "test";
+  return <div prop:foo={value}></div>;
+}
+
+// Output
+function propertyBinding() {
+  const value = "test";
+  return DOMTemplate.html`<div .foo=${value}></div>`;
 }
 ```
 

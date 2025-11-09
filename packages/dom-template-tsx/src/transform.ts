@@ -143,16 +143,17 @@ function processAttribute(
   let prefix = '';
 
   // Check for special prefixes
-  if (name.startsWith('attr:')) {
-    // attr:foo={bar} -> foo=${bar}
+  if (name.startsWith('prop:')) {
+    // prop:foo={bar} -> .foo=${bar}
     attributeName = name.substring(5);
+    prefix = '.';
   } else if (name.startsWith('on:')) {
     // on:click={handler} -> @click=${handler}
     attributeName = name.substring(3);
     prefix = '@';
   } else {
-    // foo={bar} -> .foo=${bar}
-    prefix = '.';
+    // foo={bar} -> foo=${bar}
+    // Default is attribute binding (no prefix)
   }
 
   // Handle the attribute value

@@ -1,4 +1,4 @@
 function propertyBinding() {
   const value = "test";
-  return <div foo={value}></div>;
+  return <div prop:foo={value}></div>;
 }

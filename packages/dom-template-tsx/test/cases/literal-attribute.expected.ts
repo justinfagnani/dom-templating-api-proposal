@@ -1,3 +1,3 @@
 function literalAttribute() {
-    return DOMTemplate.html `<div .class="container"></div>`;
+    return DOMTemplate.html `<div class="container"></div>`;
 }
