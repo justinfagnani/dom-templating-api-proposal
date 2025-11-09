@@ -11,6 +11,7 @@
   "keywords": [],
   "author": "",
   "dependencies": {
+    "dom-scheduler-prototype": "*",
     "dom-templating-prototype": "0.0.0"
   },
   "devDependencies": {
@@ -28,6 +29,7 @@
     "build": {
       "command": "tspc --pretty",
       "dependencies": [
+        "../dom-scheduler-prototype:build",
         "../dom-templating-prototype:build",
         "../dom-template-tsx:build"
       ],
