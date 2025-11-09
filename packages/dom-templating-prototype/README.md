@@ -11,9 +11,9 @@ production-ready library with similar concepts, try lit-html.
 Features implemented:
 
 - [x] Basic templating
-- [ ] Directives
+- [x] Directives
 - [ ] Factor out a DOM Parts prototype
-- [ ] DOM Scheduler prototype
+- [x] DOM Scheduler prototype
 - [ ] Signals proposal integration
 
 While the DOM Templating proposal introduces new global objects and new methods
@@ -22,8 +22,8 @@ risk of polutting the public web and cutting off some API names.
 
 ## Relationship to lit-html
 
-Much of the code here has been initially copied and modified from Google's
-lit-html library, which has a very similar API to the proposal.
+Much of the code here has been initially copied and modified from Lit's lit-html
+library, which has a very similar API to the proposal.
 
 lit-html's implementation has a strong focus on performance and code size, which
 can sometimes make the code harder to follow. Besides changes for API
@@ -32,15 +32,15 @@ much less focus on raw performance.
 
 ### Differences from lit-html
 
-- Refactored code into several modulesto  make the code easier to navigate.
+- Refactored code into several modules to make the code easier to navigate.
 - Removed several render options:
   - `host`, which was used to get a `this` value for event listener bindings, is
     replaced by looking up the host of the root node of the element with the
     binding.
-  - `createScope` which was used for scoped custom element registry integration. Since
-    the newer scoped custom element registry API supports scoped registries
-    separate from shadow roots, the intention to allow scopes to be associated
-    directly with templates.
+  - `createScope` which was used for scoped custom element registry integration.
+    Since the newer scoped custom element registry API supports scoped
+    registries separate from shadow roots, the intention to allow scopes to be
+    associated directly with templates.
   - `isConnected`, which was used to drive the `disconnected()` and
     `reconnected()` callbacks of AsyncDirectives from custom element callbacks.
     A native template feature should not need this, and should be able to drive
@@ -68,9 +68,9 @@ much less focus on raw performance.
   the rule against bindings in `<template>` to be confusing as well. The small
   code-size concern should not be an issue for a native implementation.
 - Use `instanceof` checks. lit-html goes to some lengths to work even when
-  objects are mixed between copies and different versions of the library
-  (ie, a TemplateResult produced with a `html` tag from one version, passed to
-  a `render()` function from another version). It does this by using special
+  objects are mixed between copies and different versions of the library (ie, a
+  TemplateResult produced with a `html` tag from one version, passed to a
+  `render()` function from another version). It does this by using special
   property names as brands. `instanceof` is clearer to read, and a native
   feature doesn't need to worry about this as much. If it's needed, we can add
   methods like `isTemplateResult()` to help with branding.
