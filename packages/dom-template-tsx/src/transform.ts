@@ -38,22 +38,28 @@ function jsxChildToTemplate(
 ): TemplateData {
   if (ts.isJsxText(child)) {
     // Handle JSX text with proper whitespace handling like React/JSX:
-    // - If text contains newlines, trim leading/trailing whitespace (it's formatted on separate lines)
-    // - If text is inline (no newlines), preserve leading/trailing spaces
+    // - If text starts with a newline, trim leading whitespace
+    // - If text ends with a newline, trim trailing whitespace
     // - Always collapse sequences of whitespace to single spaces
     let text = child.text;
-    const hasNewlines = /\n/.test(text);
+    const startsWithNewline = /^\s*\n/.test(text);
+    const endsWithNewline = /\n\s*$/.test(text);
 
     // Replace sequences of whitespace (including newlines) with single spaces
     text = text.replace(/\s+/g, ' ');
 
-    // If text originally had newlines, it's multi-line formatted, so trim it
-    if (hasNewlines) {
-      text = text.trim();
+    // Trim leading whitespace if the text started with a newline
+    if (startsWithNewline) {
+      text = text.replace(/^\s+/, '');
+    }
+
+    // Trim trailing whitespace if the text ended with a newline
+    if (endsWithNewline) {
+      text = text.replace(/\s+$/, '');
     }
 
     // If the text is now empty or just whitespace, return empty template
-    if (text === '' || text === ' ') {
+    if (text === '') {
       return {parts: [''], expressions: []};
     }
 
