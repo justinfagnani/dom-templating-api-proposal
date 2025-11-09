@@ -1,8 +1,11 @@
-import type {} from './jsx-types.d.ts';
 import {assert} from 'chai';
-import * as DOMTemplate from 'dom-templating-prototype';
 import {render} from 'dom-templating-prototype';
+import type {TemplateResult} from 'dom-templating-prototype/lib/template-result.js';
 import {useState} from '../index.js';
+import type {} from './jsx-types.d.ts';
+
+// @ts-expect-error: required for the JSX transformer
+import * as DOMTemplate from 'dom-templating-prototype';
 
 /**
  * Strips expression comments from provided html string.
@@ -38,7 +41,12 @@ suite('Component System - Basic Tests', () => {
     });
 
     test('renders nested elements', () => {
-      const result = <div><h1>Title</h1><p>Content</p></div>;
+      const result = (
+        <div>
+          <h1>Title</h1>
+          <p>Content</p>
+        </div>
+      );
       render(result, container);
       assert.equal(
         stripExpressionComments(container.innerHTML),
@@ -115,7 +123,12 @@ suite('Component System - Basic Tests', () => {
         return <span>Hi</span>;
       }
 
-      const result = <div><Greeting /><Greeting /></div>;
+      const result = (
+        <div>
+          <Greeting />
+          <Greeting />
+        </div>
+      );
       render(result, container);
       const spans = container.querySelectorAll('span');
       assert.equal(spans.length, 2);
@@ -140,7 +153,11 @@ suite('Component System - Basic Tests', () => {
 
     test('renders component with multiple props', () => {
       function UserCard(props?: {name?: string; age?: number}) {
-        return <div><span>{props?.name}</span>, {props?.age} years old</div>;
+        return (
+          <div>
+            <span>{props?.name}</span>, {props?.age} years old
+          </div>
+        );
       }
 
       const result = <UserCard name="Bob" age={30} />;
@@ -206,7 +223,7 @@ suite('Component System - Basic Tests', () => {
       increment!();
 
       // Wait for re-render
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       assert.equal(
         stripExpressionComments(container.innerHTML),
@@ -223,7 +240,12 @@ suite('Component System - Basic Tests', () => {
         const [count2, setCount2] = useState(10);
         inc1 = () => setCount1(count1 + 1);
         inc2 = () => setCount2(count2 + 1);
-        return <div><span>A: {count1}</span><span>B: {count2}</span></div>;
+        return (
+          <div>
+            <span>A: {count1}</span>
+            <span>B: {count2}</span>
+          </div>
+        );
       }
 
       const result = <TwoCounters />;
@@ -234,14 +256,14 @@ suite('Component System - Basic Tests', () => {
 
       // Increment first counter
       inc1!();
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       const spans2 = container.querySelectorAll('span');
       assert.equal(spans2[0]?.textContent, 'A: 1');
       assert.equal(spans2[1]?.textContent, 'B: 10');
 
       // Increment second counter
       inc2!();
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       const spans3 = container.querySelectorAll('span');
       assert.equal(spans3[0]?.textContent, 'A: 1');
       assert.equal(spans3[1]?.textContent, 'B: 11');
@@ -250,11 +272,20 @@ suite('Component System - Basic Tests', () => {
 
   suite('Components with children', () => {
     test('renders component with children', () => {
-      function Card(props?: {title?: string}, children?: typeof DOMTemplate.html) {
-        return <div><h3>{props?.title}</h3><div>{children}</div></div>;
+      function Card(props?: {title?: string; children?: TemplateResult}) {
+        return (
+          <div>
+            <h3>{props?.title}</h3>
+            <div>{props?.children}</div>
+          </div>
+        );
       }
 
-      const result = <Card title="My Card"><p>Card content</p></Card>;
+      const result = (
+        <Card title="My Card">
+          <p>Card content</p>
+        </Card>
+      );
       render(result, container);
       const h3 = container.querySelector('h3');
       const p = container.querySelector('p');

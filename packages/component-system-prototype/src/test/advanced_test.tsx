@@ -1,7 +1,10 @@
-import type {} from './jsx-types.d.ts';
 import {assert} from 'chai';
-import * as DOMTemplate from 'dom-templating-prototype';
+import type {ComponentProps} from '../component.js';
 import {render, useState} from '../index.js';
+import type { } from './jsx-types.d.ts';
+
+// @ts-expect-error: required for the JSX transformer
+import * as DOMTemplate from 'dom-templating-prototype';
 
 /**
  * Strips expression comments from provided html string.
@@ -26,19 +29,33 @@ suite('Component System - Advanced Tests', () => {
         const [clicks, setClicks] = useState(0);
         incrementCount = () => setCount((c: number) => c + 1);
         incrementClicks = () => setClicks((c: number) => c + 1);
-        return <div><span>Count: {count}</span><span>Clicks: {clicks}</span></div>;
+        return (
+          <div>
+            <span>Count: {count}</span>
+            <span>Clicks: {clicks}</span>
+          </div>
+        );
       }
 
       render(<MultiState />, container);
-      assert.equal(stripExpressionComments(container.innerHTML), '<div><span>Count: 0</span><span>Clicks: 0</span></div>');
+      assert.equal(
+        stripExpressionComments(container.innerHTML),
+        '<div><span>Count: 0</span><span>Clicks: 0</span></div>'
+      );
 
       incrementCount!();
-      await new Promise(resolve => setTimeout(resolve, 10));
-      assert.equal(stripExpressionComments(container.innerHTML), '<div><span>Count: 1</span><span>Clicks: 0</span></div>');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.equal(
+        stripExpressionComments(container.innerHTML),
+        '<div><span>Count: 1</span><span>Clicks: 0</span></div>'
+      );
 
       incrementClicks!();
-      await new Promise(resolve => setTimeout(resolve, 10));
-      assert.equal(stripExpressionComments(container.innerHTML), '<div><span>Count: 1</span><span>Clicks: 1</span></div>');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.equal(
+        stripExpressionComments(container.innerHTML),
+        '<div><span>Count: 1</span><span>Clicks: 1</span></div>'
+      );
     });
 
     test('hooks maintain order across renders', async () => {
@@ -55,32 +72,49 @@ suite('Component System - Advanced Tests', () => {
           setC('Z');
         };
 
-        return <div>{a}{b}{c}</div>;
+        return (
+          <div>
+            {a}
+            {b}
+            {c}
+          </div>
+        );
       }
 
       render(<OrderTest />, container);
-      assert.equal(stripExpressionComments(container.innerHTML), '<div>ABC</div>');
+      assert.equal(
+        stripExpressionComments(container.innerHTML),
+        '<div>ABC</div>'
+      );
 
       toggle!();
-      await new Promise(resolve => setTimeout(resolve, 10));
-      assert.equal(stripExpressionComments(container.innerHTML), '<div>XYZ</div>');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.equal(
+        stripExpressionComments(container.innerHTML),
+        '<div>XYZ</div>'
+      );
     });
   });
 
   suite('Component children', () => {
     test('component receives children prop', () => {
-      function Wrapper(_props?: unknown, children?: ReturnType<typeof DOMTemplate.html>) {
+      function Wrapper({children}: ComponentProps) {
         return <div attr:class="wrapper">{children}</div>;
       }
 
-      render(<Wrapper><span>Child content</span></Wrapper>, container);
+      render(
+        <Wrapper>
+          <span>Child content</span>
+        </Wrapper>,
+        container
+      );
       const wrapper = container.querySelector('.wrapper');
       assert.isNotNull(wrapper);
       assert.include(wrapper?.innerHTML, 'Child content');
     });
 
     test('component with multiple children', () => {
-      function Container(_props?: unknown, children?: unknown) {
+      function Container({children}: ComponentProps) {
         return <section>{children}</section>;
       }
 
@@ -113,7 +147,11 @@ suite('Component System - Advanced Tests', () => {
         completed: boolean;
       }
 
-      function TodoItem({todo, onToggle, onDelete}: {
+      function TodoItem({
+        todo,
+        onToggle,
+        onDelete,
+      }: {
         todo: Todo;
         onToggle: (id: number) => void;
         onDelete: (id: number) => void;
@@ -125,7 +163,9 @@ suite('Component System - Advanced Tests', () => {
               checked={todo.completed}
               on:change={() => onToggle(todo.id)}
             />
-            <span attr:style={todo.completed ? 'text-decoration: line-through' : ''}>
+            <span
+              attr:style={todo.completed ? 'text-decoration: line-through' : ''}
+            >
               {todo.text}
             </span>
             <button on:click={() => onDelete(todo.id)}>Delete</button>
@@ -141,18 +181,26 @@ suite('Component System - Advanced Tests', () => {
         };
 
         toggleTodo = (id: number) => {
-          setTodos(todos.map(t => (t.id === id ? {...t, completed: !t.completed} : t)));
+          setTodos(
+            todos.map((t) =>
+              t.id === id ? {...t, completed: !t.completed} : t
+            )
+          );
         };
 
         deleteTodo = (id: number) => {
-          setTodos(todos.filter(t => t.id !== id));
+          setTodos(todos.filter((t) => t.id !== id));
         };
 
         return (
           <div>
             <ul>
-              {todos.map(todo => (
-                <TodoItem todo={todo} onToggle={toggleTodo!} onDelete={deleteTodo!} />
+              {todos.map((todo) => (
+                <TodoItem
+                  todo={todo}
+                  onToggle={toggleTodo!}
+                  onDelete={deleteTodo!}
+                />
               ))}
             </ul>
           </div>
@@ -167,11 +215,9 @@ suite('Component System - Advanced Tests', () => {
 
       // Add first todo
       addTodo!('Buy milk');
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Check what actually rendered
-      console.log('Container HTML after adding todo:', container.innerHTML);
-
       items = container.querySelectorAll('li');
       assert.equal(items.length, 1, 'Should have 1 todo item');
     });

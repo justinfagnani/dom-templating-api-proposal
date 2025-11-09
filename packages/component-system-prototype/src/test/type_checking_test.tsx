@@ -2,6 +2,7 @@ import type {} from './jsx-types.d.ts';
 import {assert} from 'chai';
 import * as DOMTemplate from 'dom-templating-prototype';
 import {render} from '../index.js';
+import type {TemplateResult} from 'dom-templating-prototype/lib/template-result.js';
 
 /**
  * Type checking tests - verifies that TypeScript correctly type-checks
@@ -73,8 +74,16 @@ suite('Component System - Type Checking', () => {
     });
 
     test('component with multiple required props', () => {
-      function UserCard(props: {name: string; age: number; email: string}) {
-        return <div>{props.name}, {props.age}, {props.email}</div>;
+      function UserCard(props: {
+        name: string;
+        age: string | number;
+        email: string;
+      }) {
+        return (
+          <div>
+            {props.name}, {props.age}, {props.email}
+          </div>
+        );
       }
 
       // Correct usage
@@ -86,7 +95,9 @@ suite('Component System - Type Checking', () => {
       const _result2 = <UserCard name="Bob" age={30} />;
 
       // @ts-expect-error - wrong type for age
-      const _result3 = <UserCard name="Bob" age="thirty" email="bob@example.com" />;
+      const _result3 = (
+        <UserCard name="Bob" age="thirty" email="bob@example.com" />
+      );
       // Don't render - these are compile-time type checks only
     });
 
@@ -129,14 +140,11 @@ suite('Component System - Type Checking', () => {
 
   suite('Children type checking', () => {
     test('component that accepts children', () => {
-      function Card(
-        props: {title: string},
-        children?: ReturnType<typeof DOMTemplate.html>
-      ) {
+      function Card(props: {title: string; children?: TemplateResult}) {
         return (
           <div>
             <h3>{props.title}</h3>
-            <div>{children}</div>
+            <div>{props.children}</div>
           </div>
         );
       }
@@ -156,10 +164,7 @@ suite('Component System - Type Checking', () => {
     });
 
     test('component with children validates type', () => {
-      function Wrapper(
-        _props: unknown,
-        children?: ReturnType<typeof DOMTemplate.html>
-      ) {
+      function Wrapper({children}: {children?: TemplateResult}) {
         return <div attr:class="wrapper">{children}</div>;
       }
 
@@ -233,7 +238,7 @@ suite('Component System - Type Checking', () => {
       const result = (
         <GenericList
           items={[1, 2, 3]}
-          renderItem={item => <>Number: {item * 2}</>}
+          renderItem={(item) => <>Number: {item * 2}</>}
         />
       );
       render(result, container);

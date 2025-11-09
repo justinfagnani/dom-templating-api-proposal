@@ -1,34 +1,26 @@
 /**
- * Preact-like component system built on the DOM templating API.
+ * @fileoverview Preact-like component system built on the DOM templating API.
  *
  * Provides function components with hooks support (useState, etc).
  */
 
+import {postDOMTask} from 'dom-scheduler-prototype';
+import type {ChildPart} from 'dom-templating-prototype/lib/child-part.js';
 import {
   Directive,
   makeDirective,
-  type DirectiveResult,
 } from 'dom-templating-prototype/lib/directive.js';
 import type {TemplateResult} from 'dom-templating-prototype/lib/template-result.js';
-import type {ChildPart} from 'dom-templating-prototype/lib/child-part.js';
-import {postDOMTask} from 'dom-scheduler-prototype';
 
-// ============================================================================
-// Types
-// ============================================================================
+export interface ComponentProps {
+  [key: string]: unknown;
+  children?: TemplateResult | undefined;
+}
 
 /**
  * A component function that returns a TemplateResult.
  */
-export type ComponentFunction = (
-  props?: Record<string, unknown>,
-  children?: TemplateResult
-) => TemplateResult;
-
-/**
- * A state setter function that accepts either a new value or an updater function.
- */
-export type SetStateAction<T> = T | ((prevState: T) => T);
+export type Component = (props?: ComponentProps) => TemplateResult;
 
 /**
  * Internal state hook structure.
@@ -37,59 +29,26 @@ interface StateHook<T> {
   value: T;
 }
 
-// ============================================================================
-// Hook Context
-// ============================================================================
-
 /**
- * Current component instance (set during render)
+ * Current component instance for hooks.
  */
-let currentInstance: ComponentInstance | null = null;
-
-/**
- * Gets the current component instance
- */
-function getCurrentInstance(): ComponentInstance | null {
-  return currentInstance;
-}
-
-/**
- * Sets the current component instance
- */
-function setCurrentInstance(instance: ComponentInstance | null): void {
-  currentInstance = instance;
-}
-
-// ============================================================================
-// Component Instance
-// ============================================================================
+let currentInstance: ComponentInstance | undefined = undefined;
 
 /**
  * Manages state and lifecycle for a single component instance
  */
 class ComponentInstance {
-  private hooks: unknown[] = [];
-  private hookIndex = 0;
-  private componentFn: ComponentFunction;
   private directive: ComponentDirective;
+
+  readonly componentFn: Component;
+  readonly hooks: Array<StateHook<unknown>> = [];
+  hookIndex = 0;
   props: Record<string, unknown> | undefined;
   children: TemplateResult | undefined;
 
-  constructor(componentFn: ComponentFunction, directive: ComponentDirective) {
+  constructor(componentFn: Component, directive: ComponentDirective) {
     this.componentFn = componentFn;
     this.directive = directive;
-  }
-
-  getHook(index: number): unknown {
-    return this.hooks[index];
-  }
-
-  setHook(index: number, value: unknown): void {
-    this.hooks[index] = value;
-  }
-
-  nextHookIndex(): number {
-    return this.hookIndex++;
   }
 
   scheduleUpdate(): void {
@@ -103,25 +62,17 @@ class ComponentInstance {
   }
 
   render(): TemplateResult {
-    // Reset hook index for this render
+    currentInstance = this;
     this.hookIndex = 0;
 
-    // Set global hook context
-    setCurrentInstance(this);
-
     try {
-      // Call component function
-      const result = this.componentFn(this.props, this.children);
+      const result = this.componentFn({...this.props, children: this.children});
       return result;
     } finally {
-      setCurrentInstance(null);
+      currentInstance = undefined;
     }
   }
 }
-
-// ============================================================================
-// Component Directive
-// ============================================================================
 
 /**
  * Directive for rendering function components.
@@ -132,12 +83,12 @@ class ComponentDirective extends Directive {
   private instance?: ComponentInstance;
 
   update(
-    componentFn: ComponentFunction,
+    componentFn: Component,
     props?: Record<string, unknown>,
     children?: TemplateResult
   ): TemplateResult {
-    if (!this.instance) {
-      // First render - create instance
+    if (this.instance?.componentFn !== componentFn) {
+      // First render, or component function changed - create a new instance
       this.instance = new ComponentInstance(componentFn, this);
     }
 
@@ -153,6 +104,8 @@ class ComponentDirective extends Directive {
 /**
  * Component directive function.
  *
+ * Mounts a component function into the DOM.
+ *
  * Usage:
  *   component(MyComponent)
  *   component(MyComponent, {prop1: 'value'})
@@ -160,11 +113,10 @@ class ComponentDirective extends Directive {
  */
 export const component = makeDirective(ComponentDirective);
 
-export type {DirectiveResult};
-
-// ============================================================================
-// Hooks
-// ============================================================================
+/**
+ * A state setter function that accepts either a new value or an updater function.
+ */
+export type SetStateAction<T> = T | ((prevState: T) => T);
 
 /**
  * Hook that provides state management in function components.
@@ -185,30 +137,31 @@ export type {DirectiveResult};
  * }
  * ```
  */
-export function useState<T>(initialValue: T): [T, (action: SetStateAction<T>) => void] {
-  // Get the current component instance
-  const instance = getCurrentInstance();
-
-  if (!instance) {
+export function useState<T>(
+  initialValue: T
+): [T, (action: SetStateAction<T>) => void] {
+  if (currentInstance === undefined) {
     throw new Error('useState can only be called inside a component function');
   }
 
-  // Get the index for this hook
-  const hookIndex = instance.nextHookIndex();
+  const instance = currentInstance;
 
   // Get or create the hook state
-  let hook = instance.getHook(hookIndex) as StateHook<T> | undefined;
+  const hookIndex = instance.hookIndex++;
+  let hook = instance.hooks[hookIndex] as StateHook<T> | undefined;
   if (hook === undefined) {
     // First render - initialize the hook
     hook = {value: initialValue};
-    instance.setHook(hookIndex, hook);
+    instance.hooks[hookIndex] = hook;
   }
 
   // Create the setState function
   const setState = (action: SetStateAction<T>) => {
     // Calculate the new value
     const newValue =
-      typeof action === 'function' ? (action as (prevState: T) => T)(hook!.value) : action;
+      typeof action === 'function'
+        ? (action as (prevState: T) => T)(hook!.value)
+        : action;
 
     // Only update if the value changed
     if (newValue !== hook!.value) {
