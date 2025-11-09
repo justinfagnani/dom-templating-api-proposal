@@ -16,14 +16,16 @@
       "dependencies": [
         "./packages/dom-templating-prototype:build",
         "./packages/dom-scheduler-prototype:build",
-        "./packages/dom-template-tsx:build"
+        "./packages/dom-template-tsx:build",
+        "./packages/component-system-prototype:build"
       ]
     },
     "test": {
       "dependencies": [
         "./packages/dom-templating-prototype:test",
         "./packages/dom-scheduler-prototype:test",
-        "./packages/dom-template-tsx:test"
+        "./packages/dom-template-tsx:test",
+        "./packages/component-system-prototype:test"
       ]
     }
   }
