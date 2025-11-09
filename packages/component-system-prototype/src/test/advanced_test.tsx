@@ -1,7 +1,7 @@
 import type {} from './jsx-types.d.ts';
 import {assert} from 'chai';
-import * as DOMTemplate from '../../dom-templating-prototype/index.js';
-import {html, render, useState} from '../index.js';
+import * as DOMTemplate from 'dom-templating-prototype';
+import {render, useState} from '../index.js';
 
 /**
  * Strips expression comments from provided html string.
@@ -24,8 +24,8 @@ suite('Component System - Advanced Tests', () => {
       function MultiState() {
         const [count, setCount] = useState(0);
         const [clicks, setClicks] = useState(0);
-        incrementCount = () => setCount(c => c + 1);
-        incrementClicks = () => setClicks(c => c + 1);
+        incrementCount = () => setCount((c: number) => c + 1);
+        incrementClicks = () => setClicks((c: number) => c + 1);
         return <div><span>Count: {count}</span><span>Clicks: {clicks}</span></div>;
       }
 
@@ -69,7 +69,7 @@ suite('Component System - Advanced Tests', () => {
 
   suite('Component children', () => {
     test('component receives children prop', () => {
-      function Wrapper(_props?: unknown, children?: unknown) {
+      function Wrapper(_props?: unknown, children?: ReturnType<typeof DOMTemplate.html>) {
         return <div attr:class="wrapper">{children}</div>;
       }
 
@@ -121,7 +121,7 @@ suite('Component System - Advanced Tests', () => {
         return (
           <li>
             <input
-              attr:type="checkbox"
+              type="checkbox"
               checked={todo.completed}
               on:change={() => onToggle(todo.id)}
             />

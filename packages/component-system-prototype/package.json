@@ -6,8 +6,6 @@
   "main": "index.js",
   "scripts": {
     "build": "wireit",
-    "build:browser-tests": "wireit",
-    "test:browser": "wireit",
     "test": "wireit"
   },
   "keywords": [],
@@ -28,42 +26,29 @@
   },
   "wireit": {
     "build": {
-      "command": "tsc --pretty",
-      "files": [
-        "src/**/*.ts"
-      ],
-      "outputs": [
-        "/*.{js,d.ts,js.map,d.ts.map}"
-      ]
-    },
-    "build:browser-tests": {
-      "command": "tspc -p browser-tests/tsconfig.json",
+      "command": "tspc --pretty",
       "dependencies": [
-        "build",
         "../dom-templating-prototype:build",
         "../dom-template-tsx:build"
       ],
       "files": [
-        "browser-tests/**/*.tsx",
-        "browser-tests/**/*.ts",
-        "browser-tests/tsconfig.json"
+        "src/**/*.ts",
+        "src/**/*.tsx"
       ],
       "outputs": [
-        "browser-tests-out/**"
+        "/*.{js,d.ts,js.map,d.ts.map}",
+        "test/**",
+        "!test/**/*.tsx",
+        "!test/**/*.ts"
       ]
     },
-    "test:browser": {
-      "command": "wtr browser-tests-out/**/*_test.js --config browser-tests-out/web-test-runner.config.mjs",
+    "test": {
+      "command": "wtr test/**/*_test.js",
       "dependencies": [
-        "build:browser-tests"
+        "build"
       ],
       "files": [],
       "outputs": []
-    },
-    "test": {
-      "dependencies": [
-        "test:browser"
-      ]
     }
   }
 }

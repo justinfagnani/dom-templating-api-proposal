@@ -5,4 +5,5 @@
 .tsbuildinfo
 node_modules/
 browser-tests-out/
-!browser-tests/*.d.ts
+!src/test/jsx-types.d.ts
+!web-test-runner.config.js

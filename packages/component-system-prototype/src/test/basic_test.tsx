@@ -1,7 +1,7 @@
 import type {} from './jsx-types.d.ts';
 import {assert} from 'chai';
-import * as DOMTemplate from '../../dom-templating-prototype/index.js';
-import {render} from '../../dom-templating-prototype/index.js';
+import * as DOMTemplate from 'dom-templating-prototype';
+import {render} from 'dom-templating-prototype';
 import {useState} from '../index.js';
 
 /**
