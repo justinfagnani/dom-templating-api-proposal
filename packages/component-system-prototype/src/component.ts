@@ -10,6 +10,8 @@ import {
   type DirectiveResult,
 } from 'dom-templating-prototype/lib/directive.js';
 import type {TemplateResult} from 'dom-templating-prototype/lib/template-result.js';
+import type {ChildPart} from 'dom-templating-prototype/lib/child-part.js';
+import {postDOMTask} from 'dom-scheduler-prototype';
 
 // ============================================================================
 // Types
@@ -91,9 +93,13 @@ class ComponentInstance {
   }
 
   scheduleUpdate(): void {
-    // Trigger re-render by calling setValue on the directive
-    const result = this.render();
-    this.directive.setValue(result);
+    // Schedule a DOM task to re-render this component
+    // This ensures updates run in tree order and are batched
+    const node = (this.directive.part as ChildPart).parentNode;
+    postDOMTask(node, () => {
+      const result = this.render();
+      this.directive.setValue(result);
+    });
   }
 
   render(): TemplateResult {
