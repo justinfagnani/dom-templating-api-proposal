@@ -7,8 +7,5 @@
 // Re-export from dom-templating-prototype for convenience
 export {html, svg, render} from 'dom-templating-prototype';
 
-// Export hooks
-export {useState} from './hooks/useState.js';
-
-// Export component directive
-export {component} from './directives/component.js';
+// Export component system
+export {component, useState} from './component.js';
