@@ -35,10 +35,14 @@ interface StateHook<T> {
 let currentInstance: ComponentInstance | undefined = undefined;
 
 /**
- * Manages state and lifecycle for a single component instance
+ * Manages state and lifecycle for a single component instance.
+ * 
+ * This is a separate class from the component directive to make it easy to
+ * discard component state when the component function changes.
  */
 class ComponentInstance {
-  private directive: ComponentDirective;
+  #directive: ComponentDirective;
+  #updatePending = false;
 
   readonly componentFn: Component;
   readonly hooks: Array<StateHook<unknown>> = [];
@@ -48,7 +52,7 @@ class ComponentInstance {
 
   constructor(componentFn: Component, directive: ComponentDirective) {
     this.componentFn = componentFn;
-    this.directive = directive;
+    this.#directive = directive;
   }
 
   scheduleUpdate(): void {
@@ -58,10 +62,15 @@ class ComponentInstance {
     // granularity. When we add fine-grained reactivity we want to ensure that
     // We have a single pass of tree-order updates between component re-renders
     // and fine-grained updates.
-    const node = (this.directive.part as ChildPart).parentNode;
+    if (this.#updatePending) {
+      return;
+    }
+    this.#updatePending = true;
+    const node = (this.#directive.part as ChildPart).parentNode;
     postDOMTask(node, () => {
+      this.#updatePending = false;
       const result = this.render();
-      this.directive.setValue(result);
+      this.#directive.setValue(result);
     });
   }
 
