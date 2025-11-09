@@ -1,8 +1,7 @@
-import type {TestRunnerConfig} from '@web/test-runner';
 import {playwrightLauncher} from '@web/test-runner-playwright';
 
 // https://modern-web.dev/docs/test-runner/cli-and-configuration/
-const config: TestRunnerConfig = {
+const config = {
   port: 8004,
   nodeResolve: {
     exportConditions: ['development', 'browser'],
