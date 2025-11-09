@@ -207,7 +207,7 @@ suite('Component System - Type Checking', () => {
         <List
           items={['a', 'b', 'c']}
           // @ts-expect-error - renderItem should accept string, not number
-          renderItem={(item: number) => DOMTemplate.html`${item}`}
+          renderItem={(item: number) => <>{item}</>}
         />
       );
       void _result2; // Intentionally unused - compile-time type check only
@@ -233,7 +233,7 @@ suite('Component System - Type Checking', () => {
       const result = (
         <GenericList
           items={[1, 2, 3]}
-          renderItem={item => <div>Number: {item * 2}</div>}
+          renderItem={item => <>Number: {item * 2}</>}
         />
       );
       render(result, container);

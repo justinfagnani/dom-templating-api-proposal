@@ -13,6 +13,22 @@ interface TemplateData {
 }
 
 /**
+ * Converts a JSX fragment to template data.
+ * Fragments render their children without a wrapper element.
+ */
+function jsxFragmentToTemplate(
+  node: ts.JsxFragment,
+  visitor: (node: ts.Node) => ts.Node,
+  componentFunctionName: string
+): TemplateData {
+  // Process all children and merge them
+  const childTemplates = node.children.map((child) =>
+    jsxChildToTemplate(child, visitor, componentFunctionName)
+  );
+  return mergeTemplates(childTemplates);
+}
+
+/**
  * Converts a JSX child node to template data.
  */
 function jsxChildToTemplate(
@@ -21,13 +37,37 @@ function jsxChildToTemplate(
   componentFunctionName: string
 ): TemplateData {
   if (ts.isJsxText(child)) {
-    // Return the text content as a single part
-    return {parts: [child.text], expressions: []};
+    // Handle JSX text with proper whitespace handling like React/JSX:
+    // - If text contains newlines, trim leading/trailing whitespace (it's formatted on separate lines)
+    // - If text is inline (no newlines), preserve leading/trailing spaces
+    // - Always collapse sequences of whitespace to single spaces
+    let text = child.text;
+    const hasNewlines = /\n/.test(text);
+
+    // Replace sequences of whitespace (including newlines) with single spaces
+    text = text.replace(/\s+/g, ' ');
+
+    // If text originally had newlines, it's multi-line formatted, so trim it
+    if (hasNewlines) {
+      text = text.trim();
+    }
+
+    // If the text is now empty or just whitespace, return empty template
+    if (text === '' || text === ' ') {
+      return {parts: [''], expressions: []};
+    }
+
+    return {parts: [text], expressions: []};
   }
 
   if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
     // Recursively process nested JSX elements
     return jsxToTemplate(child, visitor, componentFunctionName);
+  }
+
+  if (ts.isJsxFragment(child)) {
+    // Recursively process JSX fragments
+    return jsxFragmentToTemplate(child, visitor, componentFunctionName);
   }
 
   if (ts.isJsxExpression(child)) {
@@ -351,6 +391,24 @@ export function createTransformer(
           needsComponentImport = true;
         }
         const templateData = jsxToTemplate(node, visitor, componentFunctionName);
+        const templateLiteral = createTemplateLiteral(templateData);
+
+        // Create DOMTemplate.html`...`
+        const taggedTemplate = ts.factory.createTaggedTemplateExpression(
+          ts.factory.createPropertyAccessExpression(
+            ts.factory.createIdentifier('DOMTemplate'),
+            ts.factory.createIdentifier('html')
+          ),
+          undefined, // no type arguments
+          templateLiteral
+        );
+
+        return taggedTemplate;
+      }
+
+      // Transform JSX fragments to DOMTemplate.html`` tagged template literals
+      if (ts.isJsxFragment(node)) {
+        const templateData = jsxFragmentToTemplate(node, visitor, componentFunctionName);
         const templateLiteral = createTemplateLiteral(templateData);
 
         // Create DOMTemplate.html`...`
