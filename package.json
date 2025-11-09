@@ -17,7 +17,7 @@
         "./packages/dom-templating-prototype:build",
         "./packages/dom-scheduler-prototype:build",
         "./packages/dom-template-tsx:build",
-        "./packages/component-system-prototype:build"
+        "./packages/hook-framework-demo:build"
       ]
     },
     "test": {
@@ -25,7 +25,7 @@
         "./packages/dom-templating-prototype:test",
         "./packages/dom-scheduler-prototype:test",
         "./packages/dom-template-tsx:test",
-        "./packages/component-system-prototype:test"
+        "./packages/hook-framework-demo:test"
       ]
     }
   }

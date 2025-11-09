@@ -1,7 +1,7 @@
 import {assert} from 'chai';
 import type {ComponentProps} from '../component.js';
 import {render, useState} from '../index.js';
-import type { } from './jsx-types.d.ts';
+import type { } from './jsx-types.js';
 
 // @ts-expect-error: required for the JSX transformer
 import * as DOMTemplate from 'dom-templating-prototype';

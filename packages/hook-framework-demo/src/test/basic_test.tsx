@@ -2,7 +2,7 @@ import {assert} from 'chai';
 import {render} from 'dom-templating-prototype';
 import type {TemplateResult} from 'dom-templating-prototype/lib/template-result.js';
 import {useState} from '../index.js';
-import type {} from './jsx-types.d.ts';
+import type {} from './jsx-types.js';
 
 // @ts-expect-error: required for the JSX transformer
 import * as DOMTemplate from 'dom-templating-prototype';

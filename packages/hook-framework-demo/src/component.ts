@@ -54,6 +54,10 @@ class ComponentInstance {
   scheduleUpdate(): void {
     // Schedule a DOM task to re-render this component
     // This ensures updates run in tree order and are batched
+    // Note that this only enqueues update tasks at the component-level of
+    // granularity. When we add fine-grained reactivity we want to ensure that
+    // We have a single pass of tree-order updates between component re-renders
+    // and fine-grained updates.
     const node = (this.directive.part as ChildPart).parentNode;
     postDOMTask(node, () => {
       const result = this.render();

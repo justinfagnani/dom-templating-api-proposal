@@ -1,4 +1,4 @@
-import type {} from './jsx-types.d.ts';
+import type {} from './jsx-types.js';
 import {assert} from 'chai';
 import * as DOMTemplate from 'dom-templating-prototype';
 import {render} from '../index.js';
