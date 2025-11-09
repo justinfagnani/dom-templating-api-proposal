@@ -5,10 +5,10 @@
  */
 
 // Re-export from dom-templating-prototype for convenience
-export {html, svg, render} from '../../dom-templating-prototype/index.js';
+export {html, svg, render} from 'dom-templating-prototype';
 
-// Export hooks (to be implemented)
-// export {useState} from './hooks/useState.js';
+// Export hooks
+export {useState} from './hooks/useState.js';
 
-// Export component directive (to be implemented)
-// export {component} from './directives/component.js';
+// Export component directive
+export {component} from './directives/component.js';

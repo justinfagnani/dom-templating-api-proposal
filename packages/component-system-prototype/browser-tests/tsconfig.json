@@ -13,7 +13,9 @@
     "skipLibCheck": true,
     "plugins": [
       {
-        "transform": "../../dom-template-tsx/index.js"
+        "transform": "../../dom-template-tsx/index.js",
+        "componentFunctionName": "component",
+        "componentModule": "../index.js"
       }
     ]
   },
