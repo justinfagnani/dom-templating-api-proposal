@@ -36,64 +36,60 @@ render(<App />, document.body);
 ## How It Works
 
 This demo framework implements functional components that return a template API
-`TemplateResult`. The framework then renders renders that result to the DOM.
+`TemplateResult`. The framework then renders that result to the DOM.
 
-The functional component model is supported with the `component()` directive,
-which instantiates and mounts a component to the DOM, drives its render
-lifecycle, and tracks hooks.
+To use it, we configure the TSX transform to use this package's `component()`
+directive, which is responsible for instantiating and mounting the component to
+the DOM, drive its render lifecycle, and track hooks.
 
-This shows how directives being stateful extensions to templates enables custom
-stateful abstractions like framework components.
-
-To make the API familiar, and components more ergonomic than having to use
-directives, the demo uses the `dom-template-tsx` transform to convert JSX into
-the template proposal syntax.
-
-Component updates are scheduled with the tree-aware scheduler proposed API so
-that concurrent updates and always rendered in tree-order.
+Component updates are scheduled with dom-scheduler-prototype so that concurrent
+updates are always rendered in tree-order.
 
 ### Compiled output
 
-The counter component example above is transformed to this*:
+The counter component example above is transformed to this<sup>\*</sup>:
 
-```tsx
+```ts
 import {render, useState, component} from 'hook-framework-demo';
 
 function Counter() {
   const [count, setCount] = useState(0);
-  return (DOMTemplate.html`
+  return DOMTemplate.html`
     <div>
       <p>Count: ${count}</p>
       <button @click=${() => setCount(count + 1)}>Increment</button>
     </div>
-  `);
+  `;
 }
 
 function App() {
-  return (DOMTemplate.html`
+  return DOMTemplate.html`
     <div>
       <h1>Counter Demo</h1>
       ${component(Counter)}
     </div>
-  `);
+  `;
 }
 
 render(DOMTemplate.html`${component(App)}`, document.body);
 ```
 
-\* whitespace added for readability
+<sup>\*</sup> whitespace added for readability
 
 A few interesting notes:
-- The `render()` function is just the plain render function from
-  `dom-templating-prototype` (which is `Element.render()` in the proposal).
-- The framework code is self-container in the `component()`  directive
+
+- The `render()` function is from
+  `dom-templating-prototype` (a ponyfill for the proposed `Element.render()`
+  API).
+- The framework code is self-contained in the `component()` directive.
 - This simple demo framework doesn't need direct cross-component coordination,
-  but frameworks that do can do so by introspecting `TemplateResult`s, keeping
+  but this is possible by introspecting `TemplateResult`s, keeping
   a stack, etc.
-- And interesting byproduct of the templates just being standard template API
-  templates, is that we get natural interop capabilities. Components from
-  different frameworks can mount to the same template by using their respective
-  component directives.
+- A standard template API opens the door for interesting interop opportunities.
+  A single project can use components from different frameworks by using their
+  respective component directives. This is even possible within a single
+  template by writing `DOMTemplate.html` literals directly (or with a
+  sufficiently clever TSX compiler).
 
 ## Usage
 
@@ -107,6 +103,7 @@ is called.
 
 Based on the `dom-template-tsx` transform, component templates can be written
 in JSX. This flavor of JSX supports:
+
 - Components: written with capital-letter starting "tag names": `<App/>`
 - Attribute bindings: `<MyComponent foo={x}/>`
 - Property bindings: `<MyComponent prop:foo={x}/>`
@@ -116,7 +113,7 @@ in JSX. This flavor of JSX supports:
 ### Hooks
 
 Components can use the `useState()` hook for internal state. It works similarly
-to React's version.
+to React's.
 
 `useState()` changes are flushed to the DOM via a DOM task. This means that if
 they occur during another DOM task, they will be enququed and run after the
@@ -292,8 +289,8 @@ npm test
 
 - Currently only implements the `useState()` hook
 - No `useEffect()`, `useMemo()`, `useCallback()`, or other common hooks yet
-- No JSX syntax for element bindings
-- No JSX spread binding support
+- No way to write element bindings in our JSX syntax
+- No support for JSX spread bindings
 - This is a demo only!
 
 ## Future Possibilities
