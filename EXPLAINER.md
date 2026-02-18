@@ -523,7 +523,7 @@ Other systems have explicit syntax to disambiguate between the namespaces.
 |           | Attribute | Property | Event      | Boolean Attribute |
 |-----------|-----------|----------|------------|-------------------|
 | React     | `foo={}`  | `foo={}` with an `in` check | `onfoo={}` | `foo={}`<br>Has list of boolean attributes          |
-| Vue       | `v-bind:foo=""` or `:foo={}` | `:foo={}` with an `in` check<br>`:foo.prop={}`<br>`.foo={}` | `v-on:foo={}` | `foo={}`<br>truthy or falsy values determine presence |
+| Vue       | `v-bind:foo=""` or `:foo={}` | `:foo={}` with an `in` check<br>`:foo.prop={}`<br>`.foo={}` | `v-on:foo={}` or `@foo={}` | `foo={}`<br>truthy or falsy values determine presence |
 | Angular   | `[attr.foo]=""` | `[foo]=""` | `(foo)=""` | `[attr.foo]=""`<br>truthy or falsy values determine presence |
 | Lit       | `foo={}` | `.foo={}` | `@foo={}` | `?foo={}` |
 | Imperative DOM API | `setAttribute('foo')` | `.foo=` | `addEventListener('foo')` | `toggleAttribute('foo')` |
