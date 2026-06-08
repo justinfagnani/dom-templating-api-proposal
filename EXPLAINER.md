@@ -1,6 +1,6 @@
 # DOM Templating API Explainer
 
-Author: [Justin Fagnani](https://github/justinfagnani)
+Author: [Justin Fagnani](https://github.com/justinfagnani)
 
 DRAFT | Last update: 2025-11-07
 
