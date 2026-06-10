@@ -552,7 +552,7 @@ html`<button @click=${handleClick}></button>`
 > [!NOTE]
 > These sigils do not require HTML parser changes, since they are valid,
 > parsable attribute names. They are also extremely unlikely to conflict with
-> any real-world attribute names because they are _invalid_ to use with DOM APIs
+> any real-world attribute names, partly because until recently they were invalid to use with DOM APIs
 > like `setAttribute()`.
 
 [^1]: HTML does have some facility for event handler attributes,
